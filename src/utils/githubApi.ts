@@ -138,24 +138,19 @@ export const fetchTeamData = async (): Promise<TeamMember[]> => {
   }
   
   const teamData: TeamMember[] = [];
+  const allPRs: PullRequest[] = [];
   
   // Process each team member
   for (const username of settings.teamMembers) {
     try {
       const prs = await fetchPullRequestsForUser(username);
-      
-      // For each team member, get their comments and approvals on other PRs
-      let commentsGiven = 0;
-      let approvalsGiven = 0;
-      
-      // This would be more accurate with direct GitHub API calls for each user's activity
-      // But for simplicity, we'll use the data we have
+      allPRs.push(...prs);
       
       teamData.push({
         login: username,
         prs,
-        commentsGiven,
-        approvalsGiven,
+        commentsGiven: 0, // Will calculate after gathering all PRs
+        approvalsGiven: 0, // Will calculate after gathering all PRs
       });
     } catch (error) {
       console.error(`Error fetching data for ${username}:`, error);
@@ -166,6 +161,49 @@ export const fetchTeamData = async (): Promise<TeamMember[]> => {
         commentsGiven: 0,
         approvalsGiven: 0,
       });
+    }
+  }
+
+  // Fetch reviews data for all PRs to determine comments and approvals given by team members
+  for (const pr of allPRs) {
+    try {
+      // Get the reviews for this PR to calculate approvals given
+      const prReviewsUrl = `/repos/${pr.repository}/pulls/${pr.number}/reviews`;
+      const reviews = await fetchWithAuth(prReviewsUrl);
+      
+      // Get comments for this PR to calculate comments given
+      const prCommentsUrl = `/repos/${pr.repository}/pulls/${pr.number}/comments`;
+      const comments = await fetchWithAuth(prCommentsUrl);
+      
+      // Update team members' stats based on who reviewed and commented
+      for (const review of reviews) {
+        const reviewer = review.user.login;
+        const memberIndex = teamData.findIndex(member => member.login === reviewer);
+        
+        if (memberIndex !== -1) {
+          // Count this as an approval if the review state is APPROVED
+          if (review.state === 'APPROVED') {
+            teamData[memberIndex].approvalsGiven += 1;
+          }
+          
+          // Count comments in reviews
+          if (review.body && review.body.trim().length > 0) {
+            teamData[memberIndex].commentsGiven += 1;
+          }
+        }
+      }
+      
+      // Count normal PR comments
+      for (const comment of comments) {
+        const commenter = comment.user.login;
+        const memberIndex = teamData.findIndex(member => member.login === commenter);
+        
+        if (memberIndex !== -1) {
+          teamData[memberIndex].commentsGiven += 1;
+        }
+      }
+    } catch (error) {
+      console.error(`Error fetching reviews/comments for PR #${pr.number}:`, error);
     }
   }
   
