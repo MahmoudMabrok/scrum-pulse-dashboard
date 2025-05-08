@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { encrypt, decrypt } from "@/utils/encryptionUtil";
 import { useToast } from "@/hooks/use-toast";
 import { X } from "lucide-react";
@@ -28,9 +29,12 @@ const defaultSettings: Settings = {
 const Settings = () => {
   const [settings, setSettings] = useState<Settings>(defaultSettings);
   const [newTeamMember, setNewTeamMember] = useState("");
+  const [githubType, setGithubType] = useState<"github" | "enterprise">("github");
+  const [enterpriseDomain, setEnterpriseDomain] = useState("");
   const { toast } = useToast();
 
   useEffect(() => {
+    // Load saved settings
     const storedSettings = localStorage.getItem("github_settings");
     if (storedSettings) {
       const parsedSettings = JSON.parse(storedSettings);
@@ -39,8 +43,27 @@ const Settings = () => {
         parsedSettings.token = decrypt(parsedSettings.token);
       }
       setSettings(parsedSettings);
+      
+      // Determine GitHub type from saved baseUrl
+      if (parsedSettings.baseUrl && parsedSettings.baseUrl !== "https://api.github.com") {
+        setGithubType("enterprise");
+        // Extract domain from enterprise URL: https://DOMAIN/api/v3 -> DOMAIN
+        const match = parsedSettings.baseUrl.match(/https:\/\/([^\/]+)\/api\/v3/);
+        if (match && match[1]) {
+          setEnterpriseDomain(match[1]);
+        }
+      }
     }
   }, []);
+
+  // Update the baseUrl whenever GitHub type or enterprise domain changes
+  useEffect(() => {
+    if (githubType === "github") {
+      setSettings(prev => ({ ...prev, baseUrl: "https://api.github.com" }));
+    } else if (githubType === "enterprise" && enterpriseDomain) {
+      setSettings(prev => ({ ...prev, baseUrl: `https://${enterpriseDomain}/api/v3` }));
+    }
+  }, [githubType, enterpriseDomain]);
 
   const handleSaveSettings = () => {
     // Validate settings
@@ -57,6 +80,15 @@ const Settings = () => {
       toast({
         title: "Validation Error",
         description: "GitHub organization is required",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (githubType === "enterprise" && !enterpriseDomain) {
+      toast({
+        title: "Validation Error",
+        description: "Enterprise domain is required for GitHub Enterprise",
         variant: "destructive",
       });
       return;
@@ -136,16 +168,50 @@ const Settings = () => {
                 </p>
               </div>
               
+              <div className="grid gap-4">
+                <Label>GitHub Type</Label>
+                <RadioGroup 
+                  value={githubType} 
+                  onValueChange={(value) => setGithubType(value as "github" | "enterprise")}
+                  className="flex flex-col space-y-1"
+                >
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="github" id="github-com" />
+                    <Label htmlFor="github-com" className="cursor-pointer">GitHub.com</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="enterprise" id="github-enterprise" />
+                    <Label htmlFor="github-enterprise" className="cursor-pointer">GitHub Enterprise</Label>
+                  </div>
+                </RadioGroup>
+              </div>
+              
+              {githubType === "enterprise" && (
+                <div className="grid gap-2">
+                  <Label htmlFor="enterpriseDomain">Enterprise Domain</Label>
+                  <Input
+                    id="enterpriseDomain"
+                    placeholder="github.mycompany.com"
+                    value={enterpriseDomain}
+                    onChange={(e) => setEnterpriseDomain(e.target.value)}
+                  />
+                  <p className="text-sm text-muted-foreground">
+                    The domain name of your GitHub Enterprise instance (without https:// or paths)
+                  </p>
+                </div>
+              )}
+              
               <div className="grid gap-2">
-                <Label htmlFor="baseUrl">API Base URL</Label>
+                <Label>API Base URL</Label>
                 <Input
-                  id="baseUrl"
-                  placeholder="https://api.github.com"
                   value={settings.baseUrl}
-                  onChange={(e) => setSettings({ ...settings, baseUrl: e.target.value })}
+                  disabled
+                  className="bg-muted"
                 />
                 <p className="text-sm text-muted-foreground">
-                  Use default for GitHub.com or your GitHub Enterprise URL
+                  {githubType === "github" 
+                    ? "Using GitHub.com API" 
+                    : "Using GitHub Enterprise API based on your domain"}
                 </p>
               </div>
               
