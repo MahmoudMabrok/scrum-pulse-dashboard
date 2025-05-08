@@ -1,3 +1,4 @@
+
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -10,6 +11,7 @@ import {
 } from "@/components/ui/table";
 import { fetchTeamData, generateLeaderboard, TeamMember } from "@/utils/githubApi";
 import { useToast } from "@/components/ui/use-toast";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const Leaderboard = () => {
   const { toast } = useToast();
@@ -17,7 +19,6 @@ const Leaderboard = () => {
   const { data: teamData, isLoading, error } = useQuery({
     queryKey: ["teamData"],
     queryFn: fetchTeamData,
-    retry: 1,
     meta: {
       onError: () => {
         toast({
@@ -33,7 +34,7 @@ const Leaderboard = () => {
     return (
       <div className="container mx-auto p-6">
         <h2 className="text-2xl font-bold mb-6">Leaderboard</h2>
-        <div className="text-center my-12">Loading leaderboard data...</div>
+        <LoadingSkeletons />
       </div>
     );
   }
@@ -94,5 +95,21 @@ const Leaderboard = () => {
     </div>
   );
 };
+
+const LoadingSkeletons = () => (
+  <Card>
+    <CardHeader>
+      <Skeleton className="h-6 w-48" />
+    </CardHeader>
+    <CardContent>
+      <div className="space-y-4">
+        <Skeleton className="h-8 w-full" />
+        {[1, 2, 3, 4, 5].map((i) => (
+          <Skeleton key={i} className="h-12 w-full" />
+        ))}
+      </div>
+    </CardContent>
+  </Card>
+);
 
 export default Leaderboard;

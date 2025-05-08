@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -5,6 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { fetchTeamData, TeamMember } from "@/utils/githubApi";
 import { useToast } from "@/components/ui/use-toast";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const Dashboard = () => {
   const [selectedMember, setSelectedMember] = useState<string | null>(null);
@@ -13,7 +15,6 @@ const Dashboard = () => {
   const { data: teamData, isLoading, error } = useQuery({
     queryKey: ["teamData"],
     queryFn: fetchTeamData,
-    retry: 1,
     meta: {
       onError: () => {
         toast({
@@ -29,7 +30,7 @@ const Dashboard = () => {
     return (
       <div className="container mx-auto p-6">
         <h2 className="text-2xl font-bold mb-6">Dashboard</h2>
-        <div className="text-center my-12">Loading team data...</div>
+        <LoadingSkeletons />
       </div>
     );
   }
@@ -109,5 +110,25 @@ const Dashboard = () => {
     </div>
   );
 };
+
+const LoadingSkeletons = () => (
+  <div className="space-y-4">
+    <div className="flex space-x-2 mb-4">
+      {[1, 2, 3].map((i) => (
+        <Skeleton key={i} className="h-10 w-24" />
+      ))}
+    </div>
+    <Card>
+      <CardHeader>
+        <Skeleton className="h-6 w-48" />
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {[1, 2, 3].map((i) => (
+          <Skeleton key={i} className="h-24 w-full" />
+        ))}
+      </CardContent>
+    </Card>
+  </div>
+);
 
 export default Dashboard;
