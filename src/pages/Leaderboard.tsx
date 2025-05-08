@@ -12,9 +12,11 @@ import {
 import { fetchTeamData, generateLeaderboard, TeamMember } from "@/utils/githubApi";
 import { useToast } from "@/components/ui/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useState } from "react";
 
 const Leaderboard = () => {
   const { toast } = useToast();
+  const [sortField, setSortField] = useState<'totalPRs' | 'totalCommentsGiven' | 'totalApprovalsGiven'>('totalApprovalsGiven');
 
   const { data: teamData, isLoading, error } = useQuery({
     queryKey: ["teamData"],
@@ -57,6 +59,9 @@ const Leaderboard = () => {
   }
 
   const leaderboardData = generateLeaderboard(teamData);
+  
+  // Sort the leaderboard data based on the selected sort field
+  const sortedLeaderboardData = [...leaderboardData].sort((a, b) => b[sortField] - a[sortField]);
 
   return (
     <div className="container mx-auto p-6">
@@ -66,6 +71,29 @@ const Leaderboard = () => {
           <CardTitle>Team Performance</CardTitle>
         </CardHeader>
         <CardContent>
+          <div className="mb-4">
+            <p className="text-sm text-muted-foreground mb-2">Sort by:</p>
+            <div className="flex gap-4">
+              <button
+                className={`px-3 py-1 rounded text-sm ${sortField === 'totalPRs' ? 'bg-primary text-primary-foreground' : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'}`}
+                onClick={() => setSortField('totalPRs')}
+              >
+                PRs Created
+              </button>
+              <button
+                className={`px-3 py-1 rounded text-sm ${sortField === 'totalCommentsGiven' ? 'bg-primary text-primary-foreground' : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'}`}
+                onClick={() => setSortField('totalCommentsGiven')}
+              >
+                Comments Given
+              </button>
+              <button
+                className={`px-3 py-1 rounded text-sm ${sortField === 'totalApprovalsGiven' ? 'bg-primary text-primary-foreground' : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'}`}
+                onClick={() => setSortField('totalApprovalsGiven')}
+              >
+                Approvals Given
+              </button>
+            </div>
+          </div>
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
@@ -78,7 +106,7 @@ const Leaderboard = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {leaderboardData.sort((a, b) => b.totalPRs - a.totalPRs).map((member, index) => (
+                {sortedLeaderboardData.map((member, index) => (
                   <TableRow key={member.login}>
                     <TableCell className="font-medium">{index + 1}</TableCell>
                     <TableCell>{member.login}</TableCell>

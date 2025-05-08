@@ -110,7 +110,7 @@ export const fetchPullRequestsForUser = async (username: string, limit = 10): Pr
       status = 'closed';
     }
     
-    // Count approvals (APPROVED reviews)
+    // Count all APPROVED reviews, including dismissed ones
     const approvals = reviews.filter((review: any) => review.state === 'APPROVED').length;
     
     prs.push({
@@ -181,7 +181,7 @@ export const fetchTeamData = async (): Promise<TeamMember[]> => {
         const memberIndex = teamData.findIndex(member => member.login === reviewer);
         
         if (memberIndex !== -1) {
-          // Count this as an approval if the review state is APPROVED
+          // Count ALL approvals, even if they were later dismissed or changed
           if (review.state === 'APPROVED') {
             teamData[memberIndex].approvalsGiven += 1;
           }
