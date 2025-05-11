@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -109,22 +108,31 @@ const Settings = () => {
   };
 
   const handleAddTeamMember = () => {
-    if (!newTeamMember.trim()) return;
-    
-    if (settings.teamMembers.includes(newTeamMember.trim())) {
+    const membersToAdd = newTeamMember
+      .split(",")
+      .map((member) => member.trim())
+      .filter((member) => member);
+
+    if (membersToAdd.length === 0) return;
+
+    const duplicateMembers = membersToAdd.filter((member) =>
+      settings.teamMembers.includes(member)
+    );
+
+    if (duplicateMembers.length > 0) {
       toast({
-        title: "Duplicate Member",
-        description: "This team member is already in the list",
+        title: "Duplicate Member(s)",
+        description: `The following member(s) are already in the list: ${duplicateMembers.join(", ")}`,
         variant: "destructive",
       });
       return;
     }
-    
+
     setSettings({
       ...settings,
-      teamMembers: [...settings.teamMembers, newTeamMember.trim()],
+      teamMembers: [...settings.teamMembers, ...membersToAdd],
     });
-    
+
     setNewTeamMember("");
   };
 
@@ -249,7 +257,7 @@ const Settings = () => {
             <CardHeader>
               <CardTitle>Team Members</CardTitle>
               <CardDescription>
-                Add GitHub handles of your team members to track
+                Add GitHub handles of your team members to track (support bulk add with commas sepation) 
               </CardDescription>
             </CardHeader>
             <CardContent>
