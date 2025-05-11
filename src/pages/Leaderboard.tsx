@@ -13,6 +13,8 @@ import { fetchTeamData, TeamMember } from "@/utils/githubApi";
 import { useToast } from "@/components/ui/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useState } from "react";
+import { Loader, AlertTriangle, Info } from "lucide-react";
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 
 // Helper function to generate leaderboard data directly from team data
 const generateLeaderboardData = (teamData: TeamMember[]) => {
@@ -47,6 +49,10 @@ const Leaderboard = () => {
     return (
       <div className="container mx-auto p-6">
         <h2 className="text-2xl font-bold mb-6">Leaderboard</h2>
+        <div className="flex items-center gap-2 text-muted-foreground mb-4">
+          <Loader className="h-5 w-5 animate-spin" />
+          <span>Loading leaderboard data...</span>
+        </div>
         <LoadingSkeletons />
       </div>
     );
@@ -56,15 +62,29 @@ const Leaderboard = () => {
     return (
       <div className="container mx-auto p-6">
         <h2 className="text-2xl font-bold mb-6">Leaderboard</h2>
-        <Card className="mb-6">
-          <CardHeader className="bg-destructive/10">
-            <CardTitle className="text-destructive">Error Loading Data</CardTitle>
-          </CardHeader>
-          <CardContent className="pt-6">
+        <Alert variant="destructive" className="mb-6">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertTitle>Error Loading Data</AlertTitle>
+          <AlertDescription>
             <p>Failed to load team data. Please check your GitHub settings and ensure your token has the correct permissions.</p>
             <p className="mt-2 text-muted-foreground">Error: {error?.message || "Unknown error"}</p>
-          </CardContent>
-        </Card>
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
+
+  if (teamData.length === 0) {
+    return (
+      <div className="container mx-auto p-6">
+        <h2 className="text-2xl font-bold mb-6">Leaderboard</h2>
+        <Alert className="mb-6">
+          <Info className="h-4 w-4" />
+          <AlertTitle>No Data Available</AlertTitle>
+          <AlertDescription>
+            No team members found. Please add team members in the settings to view the leaderboard.
+          </AlertDescription>
+        </Alert>
       </div>
     );
   }
