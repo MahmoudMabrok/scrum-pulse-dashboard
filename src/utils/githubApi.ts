@@ -1,3 +1,4 @@
+
 import { decrypt } from './encryptionUtil';
 
 export interface GithubSettings {
@@ -82,11 +83,11 @@ export const fetchPullRequestsForUser = async (username: string, limit = 10): Pr
   }
   
   // Adding state:open to only fetch open PRs
-  let query = `repo:${settings.organization}/${settings.repository} author:${username} state:all`;
+  let query = `repo:${settings.organization}/${settings.repository} author:${username} state:open`;
   
   // If we're searching within an org instead of a specific repo
   if (settings.repository === '*') {
-    query = `org:${settings.organization} author:${username}`;
+    query = `org:${settings.organization} author:${username} state:open`;
   }
   
   const searchUrl = `/search/issues?q=${encodeURIComponent(query)}+is:pr&sort=updated&order=desc&per_page=${limit}`;
@@ -99,9 +100,13 @@ export const fetchPullRequestsForUser = async (username: string, limit = 10): Pr
     const prUrl = item.pull_request.url;
     const prDetails = await fetchWithAuth(prUrl);
     
-    // Fetch PR reviews to count approvals
-    const reviewsUrl = `${prUrl}/reviews`;
+    // Fetch PR reviews using the correct endpoint
+    const reviewsUrl = `/repos/${prDetails.base.repo.full_name}/pulls/${item.number}/reviews`;
     const reviews = await fetchWithAuth(reviewsUrl);
+    
+    // Fetch PR comments using the correct endpoint
+    const commentsUrl = `/repos/${prDetails.base.repo.full_name}/pulls/${item.number}/comments`;
+    const comments = await fetchWithAuth(commentsUrl);
     
     let status: 'open' | 'closed' | 'merged' = 'open';
     if (prDetails.merged) {
@@ -110,12 +115,13 @@ export const fetchPullRequestsForUser = async (username: string, limit = 10): Pr
       status = 'closed';
     }
     
-    // We're already filtering for open PRs in the query, but keeping the status check for merged PRs
-    // which GitHub considers as closed but we want to differentiate
-    
-    // Count all APPROVED reviews, including dismissed ones
+    // Count all APPROVED reviews
     const approvals = reviews.filter((review: any) => review.state === 'APPROVED').length;
-    const comments = reviews.filter((review: any) => review.state === 'COMMENTED').length;
+    
+    // Count all comments (including review comments)
+    const commentsCount = comments.length + reviews.filter((review: any) => 
+      review.body && review.body.trim().length > 0 && review.state === 'COMMENTED'
+    ).length;
     
     prs.push({
       id: item.id,
@@ -126,7 +132,7 @@ export const fetchPullRequestsForUser = async (username: string, limit = 10): Pr
       status,
       created_at: item.created_at,
       updated_at: item.updated_at,
-      comments,
+      comments: commentsCount,
       approvals,
       repository: prDetails.base.repo.full_name,
     });
@@ -171,11 +177,11 @@ export const fetchTeamData = async (): Promise<TeamMember[]> => {
   // Fetch reviews data for all PRs to determine comments and approvals given by team members
   for (const pr of allPRs) {
     try {
-      // Get the reviews for this PR to calculate approvals given
+      // Use the specific reviews endpoint for each PR
       const prReviewsUrl = `/repos/${pr.repository}/pulls/${pr.number}/reviews`;
       const reviews = await fetchWithAuth(prReviewsUrl);
       
-      // Get comments for this PR to calculate comments given
+      // Use the specific comments endpoint for each PR
       const prCommentsUrl = `/repos/${pr.repository}/pulls/${pr.number}/comments`;
       const comments = await fetchWithAuth(prCommentsUrl);
       
@@ -185,19 +191,19 @@ export const fetchTeamData = async (): Promise<TeamMember[]> => {
         const memberIndex = teamData.findIndex(member => member.login === reviewer);
         
         if (memberIndex !== -1) {
-          // Count ALL approvals, even if they were later dismissed or changed
+          // Count approvals
           if (review.state === 'APPROVED') {
             teamData[memberIndex].approvalsGiven += 1;
           }
           
           // Count comments in reviews
-          if (review.body && review.body.trim().length > 0) {
+          if (review.body && review.body.trim().length > 0 && review.state === 'COMMENTED') {
             teamData[memberIndex].commentsGiven += 1;
           }
         }
       }
       
-      // Count normal PR comments
+      // Count PR comments
       for (const comment of comments) {
         const commenter = comment.user.login;
         const memberIndex = teamData.findIndex(member => member.login === commenter);
