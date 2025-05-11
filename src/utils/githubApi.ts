@@ -20,6 +20,7 @@ export interface PullRequest {
   updated_at: string;
   comments: number;
   approvals: number;
+  dissmissed: number;
   repository: string;
 }
 
@@ -90,7 +91,7 @@ const fetchWithAuth = async (url: string, options: RequestInit = {}) => {
     ...options,
     headers,
   });
-  
+
   if (!response.ok) {
     throw new Error(`GitHub API error: ${response.status} ${await response.text()}`);
   }
@@ -105,11 +106,11 @@ export const fetchPullRequestsForUser = async (username: string, limit = 10): Pr
   }
   
   // Adding state:open to only fetch open PRs
-  let query = `repo:${settings.organization}/${settings.repository} author:${username} state:open`;
+  let query = `repo:${settings.organization}/${settings.repository} author:${username}`;
   
   // If we're searching within an org instead of a specific repo
   if (settings.repository === '*') {
-    query = `org:${settings.organization} author:${username} state:open`;
+    query = `org:${settings.organization} author:${username}`;
   }
   
   const searchUrl = `/search/issues?q=${encodeURIComponent(query)}+is:pr&sort=updated&order=desc&per_page=${limit}`;
@@ -125,6 +126,10 @@ export const fetchPullRequestsForUser = async (username: string, limit = 10): Pr
     // Fetch PR reviews using the correct endpoint
     const reviewsUrl = `/repos/${prDetails.base.repo.full_name}/pulls/${item.number}/reviews`;
     const reviews = await fetchWithAuth(reviewsUrl);
+
+    // if (prUrl.includes('11468')) {
+    //   alert(`review ${JSON.stringify(reviews)}`);
+    // }
     
     // Fetch PR comments using the correct endpoint
     const commentsUrl = `/repos/${prDetails.base.repo.full_name}/pulls/${item.number}/comments`;
@@ -138,7 +143,8 @@ export const fetchPullRequestsForUser = async (username: string, limit = 10): Pr
     }
     
     // Count all APPROVED reviews
-    const approvals = reviews.filter((review: any) => review.state === 'APPROVED').length;
+    const approvals = reviews.filter((review: any) => review.state === 'APPROVED').length ?? 0;
+    const dissmissed = reviews.filter((review: any) => review.state === 'DISMISSED').length ?? 0;
     
     // Count all comments (including review comments)
     const commentsCount = comments.length + reviews.filter((review: any) => 
@@ -156,6 +162,7 @@ export const fetchPullRequestsForUser = async (username: string, limit = 10): Pr
       updated_at: item.updated_at,
       comments: commentsCount,
       approvals,
+      dissmissed,
       repository: prDetails.base.repo.full_name,
     });
   }
@@ -218,7 +225,7 @@ export const fetchTeamData = async (): Promise<TeamMember[]> => {
         
         if (memberIndex !== -1) {
           // Count approvals
-          if (review.state === 'APPROVED') {
+          if (review.state === 'APPROVED' || review.state === 'DISMISSED') {
             teamData[memberIndex].approvalsGiven += 1;
             
             // Add detailed review info

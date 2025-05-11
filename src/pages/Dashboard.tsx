@@ -75,6 +75,19 @@ const Dashboard = () => {
   const displayMember = selectedMember 
     ? teamData.find(member => member.login === selectedMember)
     : teamData[0];
+    
+  const badgeVarient = (status: string) => {
+    switch (status) {
+      case "open":
+        return "green";
+      case "closed":
+        return "red";
+      case "merged":    
+        return "purple";
+      default:
+        return "green";
+    }
+  };  
 
   return (
     <div className="container mx-auto p-6">
@@ -117,13 +130,13 @@ const Dashboard = () => {
                           <span className="text-sm font-mono bg-muted px-2 py-1 rounded">#{pr.number}</span>
                         </div>
                         <div className="text-sm text-muted-foreground">
-                          <Badge variant="secondary">{pr.status}</Badge> | Repository: {pr.repository}
+                          <Badge variant={badgeVarient(pr.status)}>{pr.status}</Badge> | Repository: {pr.repository}
                         </div>
                         <div className="text-sm text-muted-foreground">
                           Created: {new Date(pr.created_at).toLocaleDateString()} | Updated: {new Date(pr.updated_at).toLocaleDateString()}
                         </div>
                         <div className="text-sm text-muted-foreground">
-                          Comments: {pr.comments} | Approvals: {pr.approvals}
+                          Comments: {pr.comments} | Approvals: {pr.approvals} | Dissmissed: {pr.dissmissed}
                         </div>
                       </li>
                     ))}
