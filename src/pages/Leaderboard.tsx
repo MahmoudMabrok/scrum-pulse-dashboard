@@ -9,12 +9,14 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
 import { fetchTeamData, TeamMember } from "@/utils/githubApi";
 import { useToast } from "@/components/ui/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useState } from "react";
-import { Loader, AlertTriangle, Info } from "lucide-react";
+import { Loader, AlertTriangle, Info, Calendar, MessageSquare, Check } from "lucide-react";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
+import MemberDetailsDialog from "@/components/leaderboard/MemberDetailsDialog";
 
 // Helper function to generate leaderboard data directly from team data
 const generateLeaderboardData = (teamData: TeamMember[]) => {
@@ -29,6 +31,8 @@ const generateLeaderboardData = (teamData: TeamMember[]) => {
 const Leaderboard = () => {
   const { toast } = useToast();
   const [sortField, setSortField] = useState<'totalPRs' | 'totalCommentsGiven' | 'totalApprovalsGiven'>('totalApprovalsGiven');
+  const [selectedMember, setSelectedMember] = useState<TeamMember | null>(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
 
   // Use the same query as Dashboard to avoid duplicate API calls
   const { data: teamData, isLoading, error } = useQuery({
@@ -44,6 +48,11 @@ const Leaderboard = () => {
       }
     }
   });
+
+  const handleMemberDetails = (member: TeamMember) => {
+    setSelectedMember(member);
+    setDialogOpen(true);
+  };
 
   if (isLoading) {
     return (
@@ -135,23 +144,58 @@ const Leaderboard = () => {
                   <TableHead>PRs Created</TableHead>
                   <TableHead>Comments Given</TableHead>
                   <TableHead>Approvals Given</TableHead>
+                  <TableHead className="text-right">Details</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {sortedLeaderboardData.map((member, index) => (
-                  <TableRow key={member.login}>
-                    <TableCell className="font-medium">{index + 1}</TableCell>
-                    <TableCell>{member.login}</TableCell>
-                    <TableCell>{member.totalPRs}</TableCell>
-                    <TableCell>{member.totalCommentsGiven}</TableCell>
-                    <TableCell>{member.totalApprovalsGiven}</TableCell>
-                  </TableRow>
-                ))}
+                {sortedLeaderboardData.map((member, index) => {
+                  const teamMember = teamData.find(tm => tm.login === member.login);
+                  return (
+                    <TableRow key={member.login}>
+                      <TableCell className="font-medium">{index + 1}</TableCell>
+                      <TableCell>{member.login}</TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-1">
+                          <Calendar size={16} className="text-muted-foreground" />
+                          {member.totalPRs}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-1">
+                          <MessageSquare size={16} className="text-muted-foreground" />
+                          {member.totalCommentsGiven}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-1">
+                          <Check size={16} className="text-muted-foreground" />
+                          {member.totalApprovalsGiven}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={() => teamMember && handleMemberDetails(teamMember)}
+                          disabled={!teamMember}
+                        >
+                          View Details
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           </div>
         </CardContent>
       </Card>
+
+      <MemberDetailsDialog 
+        member={selectedMember} 
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+      />
     </div>
   );
 };

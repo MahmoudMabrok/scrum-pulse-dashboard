@@ -23,11 +23,33 @@ export interface PullRequest {
   repository: string;
 }
 
+export interface ReviewDetail {
+  id: number;
+  prNumber: number;
+  prTitle: string;
+  repository: string;
+  state: string;
+  submittedAt: string;
+  url: string;
+}
+
+export interface CommentDetail {
+  id: number;
+  prNumber: number;
+  prTitle: string;
+  repository: string;
+  body: string;
+  createdAt: string;
+  url: string;
+}
+
 export interface TeamMember {
   login: string;
   prs: PullRequest[];
   commentsGiven: number;
   approvalsGiven: number;
+  reviewDetails?: ReviewDetail[];
+  commentDetails?: CommentDetail[];
 }
 
 export interface LeaderboardItem {
@@ -161,6 +183,8 @@ export const fetchTeamData = async (): Promise<TeamMember[]> => {
         prs,
         commentsGiven: 0, // Will calculate after gathering all PRs
         approvalsGiven: 0, // Will calculate after gathering all PRs
+        reviewDetails: [],
+        commentDetails: [],
       });
     } catch (error) {
       console.error(`Error fetching data for ${username}:`, error);
@@ -170,6 +194,8 @@ export const fetchTeamData = async (): Promise<TeamMember[]> => {
         prs: [],
         commentsGiven: 0,
         approvalsGiven: 0,
+        reviewDetails: [],
+        commentDetails: [],
       });
     }
   }
@@ -194,11 +220,41 @@ export const fetchTeamData = async (): Promise<TeamMember[]> => {
           // Count approvals
           if (review.state === 'APPROVED') {
             teamData[memberIndex].approvalsGiven += 1;
+            
+            // Add detailed review info
+            if (!teamData[memberIndex].reviewDetails) {
+              teamData[memberIndex].reviewDetails = [];
+            }
+            
+            teamData[memberIndex].reviewDetails.push({
+              id: review.id,
+              prNumber: pr.number,
+              prTitle: pr.title,
+              repository: pr.repository,
+              state: review.state,
+              submittedAt: review.submitted_at,
+              url: pr.url,
+            });
           }
           
           // Count comments in reviews
           if (review.body && review.body.trim().length > 0 && review.state === 'COMMENTED') {
             teamData[memberIndex].commentsGiven += 1;
+            
+            // Add detailed comment info
+            if (!teamData[memberIndex].commentDetails) {
+              teamData[memberIndex].commentDetails = [];
+            }
+            
+            teamData[memberIndex].commentDetails.push({
+              id: review.id,
+              prNumber: pr.number,
+              prTitle: pr.title,
+              repository: pr.repository,
+              body: review.body,
+              createdAt: review.submitted_at,
+              url: pr.url,
+            });
           }
         }
       }
@@ -210,6 +266,21 @@ export const fetchTeamData = async (): Promise<TeamMember[]> => {
         
         if (memberIndex !== -1) {
           teamData[memberIndex].commentsGiven += 1;
+          
+          // Add detailed comment info
+          if (!teamData[memberIndex].commentDetails) {
+            teamData[memberIndex].commentDetails = [];
+          }
+          
+          teamData[memberIndex].commentDetails.push({
+            id: comment.id,
+            prNumber: pr.number,
+            prTitle: pr.title,
+            repository: pr.repository,
+            body: comment.body,
+            createdAt: comment.created_at,
+            url: pr.url,
+          });
         }
       }
     } catch (error) {
