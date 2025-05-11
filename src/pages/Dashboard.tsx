@@ -110,18 +110,21 @@ const Dashboard = () => {
                   <ul className="list-none space-y-2">
                     {member.prs.map((pr) => (
                       <li key={pr.id} className="border rounded-md p-4">
-                        <a href={pr.url} target="_blank" rel="noopener noreferrer" className="font-medium hover:underline">
-                          {pr.title}
-                        </a>
-                        <p className="text-sm text-muted-foreground">
-                          Status: <Badge variant="secondary">{pr.status}</Badge> | Repository: {pr.repository}
-                        </p>
-                        <p className="text-sm text-muted-foreground">
+                        <div className="flex justify-between items-start mb-1">
+                          <a href={pr.url} target="_blank" rel="noopener noreferrer" className="font-medium hover:underline">
+                            {pr.title}
+                          </a>
+                          <span className="text-sm font-mono bg-muted px-2 py-1 rounded">#{pr.number}</span>
+                        </div>
+                        <div className="text-sm text-muted-foreground">
+                          <Badge variant="secondary">{pr.status}</Badge> | Repository: {pr.repository}
+                        </div>
+                        <div className="text-sm text-muted-foreground">
                           Created: {new Date(pr.created_at).toLocaleDateString()} | Updated: {new Date(pr.updated_at).toLocaleDateString()}
-                        </p>
-                        <p className="text-sm text-muted-foreground">
+                        </div>
+                        <div className="text-sm text-muted-foreground">
                           Comments: {pr.comments} | Approvals: {pr.approvals}
-                        </p>
+                        </div>
                       </li>
                     ))}
                   </ul>

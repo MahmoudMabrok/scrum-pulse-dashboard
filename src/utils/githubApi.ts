@@ -81,11 +81,12 @@ export const fetchPullRequestsForUser = async (username: string, limit = 10): Pr
     throw new Error('GitHub settings not configured');
   }
   
-  let query = `repo:${settings.organization}/${settings.repository} author:${username}`;
+  // Adding state:open to only fetch open PRs
+  let query = `repo:${settings.organization}/${settings.repository} author:${username} state:open`;
   
   // If we're searching within an org instead of a specific repo
   if (settings.repository === '*') {
-    query = `org:${settings.organization} author:${username}`;
+    query = `org:${settings.organization} author:${username} state:open`;
   }
   
   const searchUrl = `/search/issues?q=${encodeURIComponent(query)}+is:pr&sort=updated&order=desc&per_page=${limit}`;
@@ -108,6 +109,9 @@ export const fetchPullRequestsForUser = async (username: string, limit = 10): Pr
     } else if (prDetails.state === 'closed') {
       status = 'closed';
     }
+    
+    // We're already filtering for open PRs in the query, but keeping the status check for merged PRs
+    // which GitHub considers as closed but we want to differentiate
     
     // Count all APPROVED reviews, including dismissed ones
     const approvals = reviews.filter((review: any) => review.state === 'APPROVED').length;
@@ -208,4 +212,3 @@ export const fetchTeamData = async (): Promise<TeamMember[]> => {
   
   return teamData;
 };
-
