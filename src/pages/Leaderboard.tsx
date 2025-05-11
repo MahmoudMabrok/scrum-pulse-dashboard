@@ -9,15 +9,26 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { fetchTeamData, generateLeaderboard, TeamMember } from "@/utils/githubApi";
+import { fetchTeamData, TeamMember } from "@/utils/githubApi";
 import { useToast } from "@/components/ui/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useState } from "react";
+
+// Helper function to generate leaderboard data directly from team data
+const generateLeaderboardData = (teamData: TeamMember[]) => {
+  return teamData.map((member) => ({
+    login: member.login,
+    totalPRs: member.prs.length,
+    totalCommentsGiven: member.commentsGiven,
+    totalApprovalsGiven: member.approvalsGiven,
+  }));
+};
 
 const Leaderboard = () => {
   const { toast } = useToast();
   const [sortField, setSortField] = useState<'totalPRs' | 'totalCommentsGiven' | 'totalApprovalsGiven'>('totalApprovalsGiven');
 
+  // Use the same query as Dashboard to avoid duplicate API calls
   const { data: teamData, isLoading, error } = useQuery({
     queryKey: ["teamData"],
     queryFn: fetchTeamData,
@@ -58,7 +69,8 @@ const Leaderboard = () => {
     );
   }
 
-  const leaderboardData = generateLeaderboard(teamData);
+  // Generate leaderboard data directly from the team data
+  const leaderboardData = generateLeaderboardData(teamData);
   
   // Sort the leaderboard data based on the selected sort field
   const sortedLeaderboardData = [...leaderboardData].sort((a, b) => b[sortField] - a[sortField]);

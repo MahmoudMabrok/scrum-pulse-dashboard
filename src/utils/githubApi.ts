@@ -1,4 +1,3 @@
-
 import { decrypt } from './encryptionUtil';
 
 export interface GithubSettings {
@@ -210,11 +209,3 @@ export const fetchTeamData = async (): Promise<TeamMember[]> => {
   return teamData;
 };
 
-export const generateLeaderboard = (teamData: TeamMember[]): LeaderboardItem[] => {
-  return teamData.map(member => ({
-    login: member.login,
-    totalPRs: member.prs.length,
-    totalCommentsGiven: member.commentsGiven,
-    totalApprovalsGiven: member.approvalsGiven,
-  }));
-};
