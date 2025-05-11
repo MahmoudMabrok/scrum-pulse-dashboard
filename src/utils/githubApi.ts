@@ -82,11 +82,11 @@ export const fetchPullRequestsForUser = async (username: string, limit = 10): Pr
   }
   
   // Adding state:open to only fetch open PRs
-  let query = `repo:${settings.organization}/${settings.repository} author:${username} state:open`;
+  let query = `repo:${settings.organization}/${settings.repository} author:${username} state:all`;
   
   // If we're searching within an org instead of a specific repo
   if (settings.repository === '*') {
-    query = `org:${settings.organization} author:${username} state:open`;
+    query = `org:${settings.organization} author:${username}`;
   }
   
   const searchUrl = `/search/issues?q=${encodeURIComponent(query)}+is:pr&sort=updated&order=desc&per_page=${limit}`;
@@ -115,6 +115,7 @@ export const fetchPullRequestsForUser = async (username: string, limit = 10): Pr
     
     // Count all APPROVED reviews, including dismissed ones
     const approvals = reviews.filter((review: any) => review.state === 'APPROVED').length;
+    const comments = reviews.filter((review: any) => review.state === 'COMMENTED').length;
     
     prs.push({
       id: item.id,
@@ -125,7 +126,7 @@ export const fetchPullRequestsForUser = async (username: string, limit = 10): Pr
       status,
       created_at: item.created_at,
       updated_at: item.updated_at,
-      comments: item.comments,
+      comments,
       approvals,
       repository: prDetails.base.repo.full_name,
     });
