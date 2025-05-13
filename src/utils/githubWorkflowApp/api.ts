@@ -1,14 +1,14 @@
 
 import { getStoredSettings } from './settings';
 
-export const fetchWithAuth = async (url: string, options: RequestInit = {}) => {
+export const fetchWithAuth = async (url: string, options: RequestInit = {}, withAccept=true) => {
   const settings = getStoredSettings();
   if (!settings || !settings.token) {
     throw new Error('GitHub token not configured');
   }
   
   const headers = {
-    'Accept': 'application/vnd.github.v3+json',
+    ...(withAccept && { Accept: 'application/vnd.github.v3+json' }),
     'Authorization': `token ${settings.token}`,
     ...options.headers,
   };

@@ -1,5 +1,6 @@
 
 import { decrypt } from './encryptionUtil';
+import { fetchWorkflowArtifactData } from './githubWorkflowApp';
 
 export interface WorkflowSettings {
   workflowIds: string[];
@@ -24,6 +25,7 @@ export interface WorkflowRun {
   commit_message: string;
   actor: string;
   jobs_url: string;
+  prs?: string;
 }
 
 export interface JobRun {
@@ -90,7 +92,7 @@ const fetchWithAuth = async (url: string, options: RequestInit = {}) => {
   return response.json();
 };
 
-export const fetchWorkflowRuns = async (search: string = '', specificWorkflowId: string | null = null): Promise<WorkflowRun[]> => {
+export const fetchWorkflowRuns = async ( specificWorkflowId: string | null = null): Promise<WorkflowRun[]> => {
   const settings = getStoredSettings();
   if (!settings || !settings.organization || !settings.repository) {
     throw new Error('GitHub settings not configured');
@@ -107,15 +109,18 @@ export const fetchWorkflowRuns = async (search: string = '', specificWorkflowId:
   const workflowsToFetch = specificWorkflowId 
     ? [specificWorkflowId] 
     : workflowSettings.workflowIds;
-  
-  for (const workflowId of workflowsToFetch) {
-    try {
+
       // For organization-wide settings
       let repoPath = settings.repository;
       if (repoPath === '*') {
         // If user selected all repos, we'll need to limit to a specific repo for workflow API
         repoPath = settings.organization;
       }
+
+
+  for (const workflowId of workflowsToFetch) {
+    try {
+    
       
       const endpoint = `/repos/${settings.organization}/${repoPath}/actions/workflows/${workflowId}/runs?per_page=10`;
       const data = await fetchWithAuth(endpoint);
@@ -151,21 +156,17 @@ export const fetchWorkflowRuns = async (search: string = '', specificWorkflowId:
   
   // Sort runs by creation date (newest first)
   allRuns.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-  
-  // Filter by search term if provided
-  if (search && search.trim() !== '') {
-    const searchLower = search.toLowerCase();
-    return allRuns.filter(run => 
-      run.name.toLowerCase().includes(searchLower) ||
-      run.display_title.toLowerCase().includes(searchLower) ||
-      run.actor.toLowerCase().includes(searchLower) ||
-      run.branch.toLowerCase().includes(searchLower) ||
-      run.commit.toLowerCase().includes(searchLower) ||
-      run.commit_message.toLowerCase().includes(searchLower) ||
-      run.repository.toLowerCase().includes(searchLower) ||
-      run.status.toLowerCase().includes(searchLower) ||
-      (run.conclusion && run.conclusion.toLowerCase().includes(searchLower))
-    );
+
+  // loop on runs run get prs into it 
+  for (const run of allRuns) {
+    try {
+      const data = await fetchWorkflowArtifactData(run);
+      if (data ) {
+        run.prs = data.prs;
+      }
+    } catch (error) {
+      console.error(`Error fetching PRs for run ${run.id}:`, error);
+    }
   }
   
   return allRuns;

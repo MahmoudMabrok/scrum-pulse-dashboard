@@ -29,7 +29,7 @@ import {
 } from "lucide-react";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { fetchWorkflowRuns } from "@/utils/githubWorkflow";
+import { fetchWorkflowRuns, WorkflowRun } from "@/utils/githubWorkflow";
 import { useToast } from "@/components/ui/use-toast";
 import LoadingSkeletons from "@/components/builds/LoadingSkeletons";
 import BuildList from "@/components/builds/BuildList";
@@ -37,8 +37,8 @@ import { useIsMobile } from "@/hooks/use-mobile";
 
 const Builds = () => {
   const [search, setSearch] = useState("");
-  const [searchQuery, setSearchQuery] = useState("");
   const [activeWorkflowId, setActiveWorkflowId] = useState<string | null>(null);
+  const [searchResults, setSearchResults] = useState<WorkflowRun[] | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const { toast } = useToast();
   const isMobile = useIsMobile();
@@ -67,18 +67,36 @@ const Builds = () => {
     error, 
     refetch 
   } = useQuery({
-    queryKey: ["workflowRuns", searchQuery, activeWorkflowId, refreshKey],
-    queryFn: () => fetchWorkflowRuns(searchQuery, activeWorkflowId),
+    queryKey: ["workflowRuns", activeWorkflowId, refreshKey],
+    queryFn: () => fetchWorkflowRuns(activeWorkflowId),
     enabled: !!activeWorkflowId,
   });
+
+  useEffect(() => {
+    if (search) {
+      handleSearch();
+    } else {
+      // If search is empty, reset search results
+      setSearchResults(null);
+    }
+  }
+  , [search]);
   
   const handleSearch = () => {
-    setSearchQuery(search);
+    const filteredSearch = workflowRuns?.filter(run =>
+      run.prs?.toLowerCase().includes(search.toLowerCase()));
+
+    console.log("Filtered Search Results: search , results", search , filteredSearch);
+      
+
+    // setSearchQuery(search);
+    setSearchResults(filteredSearch);
   };
   
   const handleClearSearch = () => {
     setSearch("");
-    setSearchQuery("");
+    // setSearchQuery("");
+    setSearchResults(null);
   };
   
   const handleRefresh = () => {
@@ -192,7 +210,7 @@ const Builds = () => {
                   <CardTitle>Latest Workflow Runs</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <BuildList workflowRuns={workflowRuns} />
+                  <BuildList workflowRuns={searchResults ?? workflowRuns} />
                 </CardContent>
               </Card>
             )}

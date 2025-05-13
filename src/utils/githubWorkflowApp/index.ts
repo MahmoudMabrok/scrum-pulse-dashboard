@@ -1,10 +1,26 @@
 
+import { extractReleaseNotesFromZip } from '../zip';
 import { fetchWithAuth } from './api';
 import { getStoredSettings, getWorkflowSettings } from './settings';
-import { WorkflowRun, JobRun, WorkflowSettings, Artifact } from './types';
+import { WorkflowRun, JobRun, WorkflowSettings, Artifact, ArtifactData } from './types';
 
 export type { WorkflowRun, JobRun, WorkflowSettings, Artifact };
 export { getWorkflowSettings };
+
+const getFullRepoPath = async () => {
+  const settings = getStoredSettings();
+  if (!settings || !settings.organization || !settings.repository) {
+    throw new Error('GitHub settings not configured');
+  }
+  
+  let repoPath = settings.repository;
+  if (repoPath === '*') {
+    // If user selected all repos, we'll need to limit to a specific repo for workflow API
+    repoPath = settings.organization;
+  }
+  
+  return `${settings.organization}/${repoPath}`;
+}
 
 export const fetchWorkflowRuns = async (search: string = '', specificWorkflowId: string | null = null): Promise<WorkflowRun[]> => {
   const settings = getStoredSettings();
@@ -18,6 +34,8 @@ export const fetchWorkflowRuns = async (search: string = '', specificWorkflowId:
   }
   
   const allRuns: WorkflowRun[] = [];
+
+  const  repoPath = await getFullRepoPath();
   
   // If a specific workflow ID is provided, only fetch that one
   const workflowsToFetch = specificWorkflowId 
@@ -27,13 +45,7 @@ export const fetchWorkflowRuns = async (search: string = '', specificWorkflowId:
   for (const workflowId of workflowsToFetch) {
     try {
       // For organization-wide settings
-      let repoPath = settings.repository;
-      if (repoPath === '*') {
-        // If user selected all repos, we'll need to limit to a specific repo for workflow API
-        repoPath = settings.organization;
-      }
-      
-      const endpoint = `/repos/${settings.organization}/${repoPath}/actions/workflows/${workflowId}/runs?per_page=10`;
+      const endpoint = `/repos/${repoPath}/actions/workflows/${workflowId}/runs?per_page=10`;
       const data = await fetchWithAuth(endpoint);
       
       if (data.workflow_runs && Array.isArray(data.workflow_runs)) {
@@ -50,7 +62,7 @@ export const fetchWorkflowRuns = async (search: string = '', specificWorkflowId:
           run_attempt: run.run_attempt,
           display_title: run.display_title || run.name,
           event: run.event,
-          repository: run.repository?.full_name || `${settings.organization}/${repoPath}`,
+          repository: run.repository?.full_name || `${repoPath}`,
           branch: run.head_branch || 'unknown',
           commit: run.head_sha?.substring(0, 7) || 'unknown',
           commit_message: run.head_commit?.message || 'No commit message',
@@ -116,30 +128,54 @@ export const fetchWorkflowJobs = async (run: WorkflowRun): Promise<JobRun[]> => 
   }
 };
 
-export const fetchWorkflowArtifacts = async (run: WorkflowRun): Promise<Artifact[]> => {
+export const fetchWorkflowArtifactData = async (run: WorkflowRun): Promise<ArtifactData> => {
+  console.log(`Fetching artifacts for run ${run.id}...`);
+
+  const emptyResponse = {prs: ""};
+  
   try {
-    // If artifacts_url is not available, construct it
-    const artifactsUrl = run.artifacts_url || 
-      `https://api.github.com/repos/${run.repository}/actions/runs/${run.id}/artifacts`;
-    
-    const data = await fetchWithAuth(artifactsUrl);
-    
+   const  repoPath = await getFullRepoPath();
+  
+    const data = await fetchWithAuth(`/repos/${repoPath}/actions/runs/${run.id}/artifacts`);
+
+    console.log(`Fetched artifacts for run ${run.id}:`, data);
+
     if (data.artifacts && Array.isArray(data.artifacts)) {
-      return data.artifacts.map((artifact: any) => ({
-        id: artifact.id,
-        name: artifact.name,
-        size_in_bytes: artifact.size_in_bytes,
-        archive_download_url: artifact.archive_download_url,
-        expires_at: artifact.expires_at,
-        created_at: artifact.created_at,
-        updated_at: artifact.updated_at,
-        download_url: artifact.url
-      }));
+      const releaseNotesArtifact = data.artifacts[0];
+      if (!releaseNotesArtifact) {
+        console.log(`No release notes artifact found for run ${run.id}`);
+        throw new Error(`No release notes artifact found for run ${run.id}`);
+      }
+      const zipUrl = releaseNotesArtifact.archive_download_url;
+
+      console.log(`name ${zipUrl} ${releaseNotesArtifact.archive_download_url}`);
+
+      const zipResponse = await fetch(zipUrl, {
+        headers: {
+          Authorization: `token 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`
+          // DO NOT include Accept: "application/vnd.github.v3+json" here
+        }
+      });
+  
+    
+      if (!zipResponse.ok) {
+        throw new Error(`Failed to download artifact: ${zipResponse.statusText}`);
+      }
+
+      const zipBuffer = await zipResponse.arrayBuffer();
+
+      const releaseNotesData = await extractReleaseNotesFromZip(zipBuffer);
+
+      console.log(`Parsed release notes data:`, releaseNotesData);
+
+      return releaseNotesData;
+      
     }
     
-    return [];
+    
+    return emptyResponse;
   } catch (error) {
     console.error(`Error fetching artifacts for run ${run.id}:`, error);
-    return [];
+    throw new Error(`Error fetching artifacts`);
   }
 };

@@ -13,7 +13,6 @@ import {
   WorkflowRun, 
   JobRun, 
   fetchWorkflowJobs,
-  fetchWorkflowArtifacts
 } from "@/utils/githubWorkflow";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useToast } from "@/components/ui/use-toast";
@@ -24,6 +23,7 @@ import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { getStatusBadge } from "./BuildsUtils";
 import JobDetails from "./JobDetails";
+import { fetchWorkflowArtifactData } from "@/utils/githubWorkflowApp/index";
 
 interface BuildDetailsDialogProps {
   run: WorkflowRun;
@@ -47,16 +47,6 @@ const BuildDetailsDialog = ({ run, onClose, open }: BuildDetailsDialogProps) => 
     queryKey: ["workflowJobs", run.id, refreshKey],
     queryFn: () => fetchWorkflowJobs(run),
     enabled: open && activeTab === "jobs",
-  });
-  
-  // Fetch artifacts for this workflow run
-  const {
-    data: artifacts,
-    isLoading: isLoadingArtifacts
-  } = useQuery({
-    queryKey: ["workflowArtifacts", run.id, refreshKey],
-    queryFn: () => fetchWorkflowArtifacts(run),
-    enabled: open && activeTab === "artifacts",
   });
   
   // Filter jobs based on search
@@ -189,57 +179,6 @@ const BuildDetailsDialog = ({ run, onClose, open }: BuildDetailsDialogProps) => 
                 )}
               </TabsContent>
 
-              <TabsContent value="artifacts" className="p-2">
-                {isLoadingArtifacts ? (
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <Loader className="h-4 w-4 animate-spin" />
-                    <span>Loading artifacts...</span>
-                  </div>
-                ) : artifacts && artifacts.length > 0 ? (
-                  <div className="space-y-4">
-                    <h3 className="font-semibold mb-2">Workflow Artifacts</h3>
-                    <Card>
-                      <CardContent className="p-4">
-                        <Table>
-                          <TableHeader>
-                            <TableRow>
-                              <TableHead>Name</TableHead>
-                              <TableHead>Size</TableHead>
-                              <TableHead>Created</TableHead>
-                              <TableHead>Actions</TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {artifacts.map((artifact) => (
-                              <TableRow key={artifact.id}>
-                                <TableCell className="font-medium">{artifact.name}</TableCell>
-                                <TableCell>{formatBytes(artifact.size_in_bytes)}</TableCell>
-                                <TableCell>
-                                  {new Date(artifact.created_at).toLocaleString()}
-                                </TableCell>
-                                <TableCell>
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    className="flex items-center gap-1"
-                                    onClick={() => artifact.download_url && window.open(artifact.download_url)}
-                                    disabled={!artifact.download_url}
-                                  >
-                                    <Download className="h-4 w-4" />
-                                    Download
-                                  </Button>
-                                </TableCell>
-                              </TableRow>
-                            ))}
-                          </TableBody>
-                        </Table>
-                      </CardContent>
-                    </Card>
-                  </div>
-                ) : (
-                  <p className="text-muted-foreground">No artifacts found for this workflow run.</p>
-                )}
-              </TabsContent>
             </ScrollArea>
           </div>
         </Tabs>

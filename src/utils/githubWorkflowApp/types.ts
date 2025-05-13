@@ -52,3 +52,6 @@ export interface Artifact {
   updated_at: string;
   download_url: string;
 }
+export interface ArtifactData {
+  prs: string
+}
