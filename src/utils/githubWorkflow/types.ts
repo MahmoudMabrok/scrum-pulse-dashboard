@@ -22,6 +22,7 @@ export interface WorkflowRun {
   commit_message: string;
   actor: string;
   jobs_url: string;
+  artifacts_url?: string;
 }
 
 export interface JobRun {
@@ -39,4 +40,15 @@ export interface JobStep {
   status: string;
   conclusion: string;
   number: number;
+}
+
+export interface Artifact {
+  id: number;
+  name: string;
+  size_in_bytes: number;
+  archive_download_url: string;
+  expires_at: string | null;
+  created_at: string;
+  updated_at: string;
+  download_url: string;
 }

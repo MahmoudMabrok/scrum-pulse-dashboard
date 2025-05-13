@@ -1,9 +1,9 @@
 
 import { fetchWithAuth } from './api';
 import { getStoredSettings, getWorkflowSettings } from './settings';
-import { WorkflowRun, JobRun, WorkflowSettings } from './types';
+import { WorkflowRun, JobRun, WorkflowSettings, Artifact } from './types';
 
-export type { WorkflowRun, JobRun, WorkflowSettings };
+export type { WorkflowRun, JobRun, WorkflowSettings, Artifact };
 export { getWorkflowSettings };
 
 export const fetchWorkflowRuns = async (search: string = '', specificWorkflowId: string | null = null): Promise<WorkflowRun[]> => {
@@ -55,7 +55,8 @@ export const fetchWorkflowRuns = async (search: string = '', specificWorkflowId:
           commit: run.head_sha?.substring(0, 7) || 'unknown',
           commit_message: run.head_commit?.message || 'No commit message',
           actor: run.actor?.login || 'unknown',
-          jobs_url: run.jobs_url
+          jobs_url: run.jobs_url,
+          artifacts_url: run.artifacts_url
         }));
         
         allRuns.push(...runs);
@@ -111,6 +112,34 @@ export const fetchWorkflowJobs = async (run: WorkflowRun): Promise<JobRun[]> => 
     return [];
   } catch (error) {
     console.error(`Error fetching jobs for run ${run.id}:`, error);
+    return [];
+  }
+};
+
+export const fetchWorkflowArtifacts = async (run: WorkflowRun): Promise<Artifact[]> => {
+  try {
+    // If artifacts_url is not available, construct it
+    const artifactsUrl = run.artifacts_url || 
+      `https://api.github.com/repos/${run.repository}/actions/runs/${run.id}/artifacts`;
+    
+    const data = await fetchWithAuth(artifactsUrl);
+    
+    if (data.artifacts && Array.isArray(data.artifacts)) {
+      return data.artifacts.map((artifact: any) => ({
+        id: artifact.id,
+        name: artifact.name,
+        size_in_bytes: artifact.size_in_bytes,
+        archive_download_url: artifact.archive_download_url,
+        expires_at: artifact.expires_at,
+        created_at: artifact.created_at,
+        updated_at: artifact.updated_at,
+        download_url: artifact.url
+      }));
+    }
+    
+    return [];
+  } catch (error) {
+    console.error(`Error fetching artifacts for run ${run.id}:`, error);
     return [];
   }
 };
