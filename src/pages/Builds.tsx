@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { 
@@ -25,7 +24,8 @@ import {
   RefreshCcw, 
   Search, 
   X,
-  FileText
+  FileText,
+  Github // Added missing Github import
 } from "lucide-react";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -46,7 +46,9 @@ const Builds = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedRun, setSelectedRun] = useState<WorkflowRun | null>(null);
   const [activeWorkflowId, setActiveWorkflowId] = useState<string | null>(null);
-  const [refreshKey, setRefreshKey] = useState(0); // Used to trigger refetch with loading state
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [jobSearch, setJobSearch] = useState("");
+  const [activeJobId, setActiveJobId] = useState<number | null>(null);
   const { toast } = useToast();
   
   // Get workflow settings from localStorage
@@ -97,7 +99,7 @@ const Builds = () => {
   };
   
   const handleRefresh = () => {
-    setRefreshKey(prev => prev + 1); // Increment to trigger refetch with loading state
+    setRefreshKey(prev => prev + 1);
     toast({
       title: "Refreshing data",
       description: "Fetching the latest workflow information"
@@ -106,8 +108,27 @@ const Builds = () => {
   
   const handleTabChange = (workflowId: string) => {
     setActiveWorkflowId(workflowId);
-    setSelectedRun(null); // Clear selected run when changing tabs
+    setSelectedRun(null);
   };
+  
+  // New handler for job search
+  const handleJobSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setJobSearch(e.target.value);
+  };
+  
+  // Filter jobs based on search
+  const filteredJobs = jobRuns ? jobRuns.filter(job => 
+    job.name.toLowerCase().includes(jobSearch.toLowerCase())
+  ) : [];
+  
+  // Set first job as active if none selected and jobs are loaded
+  useEffect(() => {
+    if (filteredJobs.length > 0 && !activeJobId) {
+      setActiveJobId(filteredJobs[0].id);
+    } else if (filteredJobs.length === 0) {
+      setActiveJobId(null);
+    }
+  }, [filteredJobs]);
   
   const getStatusBadge = (status: string, conclusion: string | null) => {
     if (status === "completed") {
@@ -124,6 +145,9 @@ const Builds = () => {
       return <Badge variant="outline">{status}</Badge>;
     }
   };
+  
+  // Get the currently active job
+  const activeJob = filteredJobs.find(job => job.id === activeJobId);
 
   // Component to display build logs with step details
   const BuildLogs = ({ job }: { job: JobRun }) => {
@@ -293,7 +317,11 @@ const Builds = () => {
                                 <Button 
                                   variant="outline" 
                                   size="sm" 
-                                  onClick={() => setSelectedRun(run)}
+                                  onClick={() => {
+                                    setSelectedRun(run);
+                                    setActiveJobId(null);
+                                    setJobSearch("");
+                                  }}
                                 >
                                   View Details
                                 </Button>
@@ -342,12 +370,44 @@ const Builds = () => {
                                     </div>
                                   ) : jobRuns && jobRuns.length > 0 ? (
                                     <div className="space-y-4">
-                                      {jobRuns.map((job) => (
-                                        <Card key={job.id} className="overflow-hidden">
+                                      {/* Job search input */}
+                                      <div className="relative">
+                                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                        <Input 
+                                          className="pl-9 mb-3"
+                                          placeholder="Search jobs..." 
+                                          value={jobSearch}
+                                          onChange={handleJobSearch}
+                                        />
+                                      </div>
+
+                                      {/* Job tabs */}
+                                      <div className="mb-4">
+                                        <ScrollArea className="whitespace-nowrap pb-2">
+                                          <div className="flex space-x-2">
+                                            {filteredJobs.map((job) => (
+                                              <Button 
+                                                key={job.id}
+                                                variant={activeJobId === job.id ? "default" : "outline"}
+                                                size="sm"
+                                                onClick={() => setActiveJobId(job.id)}
+                                                className="flex items-center gap-2"
+                                              >
+                                                {job.name}
+                                                {getStatusBadge(job.status, job.conclusion)}
+                                              </Button>
+                                            ))}
+                                          </div>
+                                        </ScrollArea>
+                                      </div>
+
+                                      {/* Selected job details */}
+                                      {activeJob ? (
+                                        <Card className="overflow-hidden">
                                           <CardHeader className="py-3">
                                             <div className="flex items-center justify-between">
-                                              <CardTitle className="text-base">{job.name}</CardTitle>
-                                              {getStatusBadge(job.status, job.conclusion)}
+                                              <CardTitle className="text-base">{activeJob.name}</CardTitle>
+                                              {getStatusBadge(activeJob.status, activeJob.conclusion)}
                                             </div>
                                           </CardHeader>
                                           <CardContent className="py-2">
@@ -366,7 +426,7 @@ const Builds = () => {
                                                     </TableRow>
                                                   </TableHeader>
                                                   <TableBody>
-                                                    {job.steps.map((step) => (
+                                                    {activeJob.steps.map((step) => (
                                                       <TableRow key={step.number}>
                                                         <TableCell>{step.number}</TableCell>
                                                         <TableCell>{step.name}</TableCell>
@@ -380,13 +440,19 @@ const Builds = () => {
                                               </TabsContent>
                                               <TabsContent value="logs">
                                                 <ScrollArea className="h-[300px] rounded-md border p-4">
-                                                  <BuildLogs job={job} />
+                                                  <BuildLogs job={activeJob} />
                                                 </ScrollArea>
                                               </TabsContent>
                                             </Tabs>
                                           </CardContent>
                                         </Card>
-                                      ))}
+                                      ) : (
+                                        <p className="text-muted-foreground text-center py-4">
+                                          {filteredJobs.length > 0 
+                                            ? "Select a job to view details" 
+                                            : "No jobs match your search"}
+                                        </p>
+                                      )}
                                     </div>
                                   ) : (
                                     <p className="text-muted-foreground">No job information available.</p>
@@ -473,4 +539,3 @@ const LoadingSkeletons = () => (
 );
 
 export default Builds;
-
