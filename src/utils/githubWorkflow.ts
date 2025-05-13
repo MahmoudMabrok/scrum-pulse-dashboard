@@ -90,7 +90,7 @@ const fetchWithAuth = async (url: string, options: RequestInit = {}) => {
   return response.json();
 };
 
-export const fetchWorkflowRuns = async (search: string = ''): Promise<WorkflowRun[]> => {
+export const fetchWorkflowRuns = async (search: string = '', specificWorkflowId: string | null = null): Promise<WorkflowRun[]> => {
   const settings = getStoredSettings();
   if (!settings || !settings.organization || !settings.repository) {
     throw new Error('GitHub settings not configured');
@@ -103,7 +103,12 @@ export const fetchWorkflowRuns = async (search: string = ''): Promise<WorkflowRu
   
   const allRuns: WorkflowRun[] = [];
   
-  for (const workflowId of workflowSettings.workflowIds) {
+  // If a specific workflow ID is provided, only fetch that one
+  const workflowsToFetch = specificWorkflowId 
+    ? [specificWorkflowId] 
+    : workflowSettings.workflowIds;
+  
+  for (const workflowId of workflowsToFetch) {
     try {
       // For organization-wide settings
       let repoPath = settings.repository;
@@ -193,3 +198,4 @@ export const fetchWorkflowJobs = async (run: WorkflowRun): Promise<JobRun[]> => 
     return [];
   }
 };
+
