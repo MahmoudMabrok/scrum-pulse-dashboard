@@ -11,6 +11,7 @@ import { SidebarProvider } from "@/components/ui/sidebar";
 import Dashboard from "./pages/Dashboard";
 import Leaderboard from "./pages/Leaderboard";
 import Settings from "./pages/Settings";
+import Builds from "./pages/Builds";
 import NotFound from "./pages/NotFound";
 import MainLayout from "./components/layout/MainLayout";
 import ErrorBoundary from "./components/ErrorBoundary";
@@ -40,6 +41,7 @@ const App = () => (
               <Route path="/" element={<MainLayout />}>
                 <Route index element={<Dashboard />} />
                 <Route path="/leaderboard" element={<Leaderboard />} />
+                <Route path="/builds" element={<Builds />} />
                 <Route path="/settings" element={<Settings />} />
                 <Route path="*" element={<NotFound />} />
               </Route>

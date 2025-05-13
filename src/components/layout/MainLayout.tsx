@@ -2,7 +2,7 @@
 import { Outlet } from "react-router-dom";
 import Navbar from "./Navbar";
 import { Sidebar, SidebarContent, SidebarTrigger } from "@/components/ui/sidebar";
-import { LayoutDashboard, BarChart, Settings, Github } from "lucide-react";
+import { LayoutDashboard, BarChart, Settings, Github, Play } from "lucide-react";
 import { 
   SidebarGroup, 
   SidebarGroupContent, 
@@ -41,6 +41,14 @@ const MainLayout = () => {
                     <Link to="/leaderboard">
                       <BarChart className="h-4 w-4 mr-2" />
                       <span>Leaderboard</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild>
+                    <Link to="/builds">
+                      <Play className="h-4 w-4 mr-2" />
+                      <span>Builds</span>
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>

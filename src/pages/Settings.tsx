@@ -17,6 +17,10 @@ interface Settings {
   teamMembers: string[];
 }
 
+interface WorkflowSettings {
+  workflowIds: string[];
+}
+
 const defaultSettings: Settings = {
   token: "",
   baseUrl: "https://api.github.com",
@@ -25,9 +29,15 @@ const defaultSettings: Settings = {
   teamMembers: [],
 };
 
+const defaultWorkflowSettings: WorkflowSettings = {
+  workflowIds: [],
+};
+
 const Settings = () => {
   const [settings, setSettings] = useState<Settings>(defaultSettings);
+  const [workflowSettings, setWorkflowSettings] = useState<WorkflowSettings>(defaultWorkflowSettings);
   const [newTeamMember, setNewTeamMember] = useState("");
+  const [newWorkflowId, setNewWorkflowId] = useState("");
   const [githubType, setGithubType] = useState<"github" | "enterprise">("github");
   const [enterpriseDomain, setEnterpriseDomain] = useState("");
   const { toast } = useToast();
@@ -52,6 +62,12 @@ const Settings = () => {
           setEnterpriseDomain(match[1]);
         }
       }
+    }
+
+    // Load workflow settings
+    const storedWorkflowSettings = localStorage.getItem("workflow_settings");
+    if (storedWorkflowSettings) {
+      setWorkflowSettings(JSON.parse(storedWorkflowSettings));
     }
   }, []);
 
@@ -100,6 +116,7 @@ const Settings = () => {
     };
     
     localStorage.setItem("github_settings", JSON.stringify(settingsToSave));
+    localStorage.setItem("workflow_settings", JSON.stringify(workflowSettings));
     
     toast({
       title: "Settings Saved",
@@ -143,6 +160,34 @@ const Settings = () => {
     });
   };
 
+  const handleAddWorkflowId = () => {
+    if (!newWorkflowId.trim()) return;
+    
+    // Check if workflow ID already exists
+    if (workflowSettings.workflowIds.includes(newWorkflowId)) {
+      toast({
+        title: "Duplicate Workflow ID",
+        description: "This workflow ID is already in the list",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    setWorkflowSettings({
+      ...workflowSettings,
+      workflowIds: [...workflowSettings.workflowIds, newWorkflowId.trim()]
+    });
+    
+    setNewWorkflowId("");
+  };
+  
+  const handleRemoveWorkflowId = (id: string) => {
+    setWorkflowSettings({
+      ...workflowSettings,
+      workflowIds: workflowSettings.workflowIds.filter(wid => wid !== id)
+    });
+  };
+
   return (
     <div className="container mx-auto">
       <h2 className="text-2xl font-bold mb-6">Settings</h2>
@@ -151,6 +196,7 @@ const Settings = () => {
         <TabsList className="mb-4">
           <TabsTrigger value="general">General</TabsTrigger>
           <TabsTrigger value="team">Team Members</TabsTrigger>
+          <TabsTrigger value="workflows">Workflows</TabsTrigger>
         </TabsList>
         
         <TabsContent value="general">
@@ -289,6 +335,59 @@ const Settings = () => {
                         {member}
                         <button
                           onClick={() => handleRemoveTeamMember(member)}
+                          className="ml-1 text-muted-foreground hover:text-foreground"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </CardContent>
+            <CardFooter>
+              <Button onClick={handleSaveSettings}>Save Settings</Button>
+            </CardFooter>
+          </Card>
+        </TabsContent>
+        
+        <TabsContent value="workflows">
+          <Card>
+            <CardHeader>
+              <CardTitle>GitHub Workflows</CardTitle>
+              <CardDescription>
+                Add workflow IDs to track GitHub Actions build status
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex space-x-2">
+                <Input
+                  placeholder="Workflow ID (e.g. 123456)"
+                  value={newWorkflowId}
+                  onChange={(e) => setNewWorkflowId(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      handleAddWorkflowId();
+                    }
+                  }}
+                />
+                <Button onClick={handleAddWorkflowId}>Add</Button>
+              </div>
+              
+              <div className="mt-4">
+                <Label>Workflow IDs</Label>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {workflowSettings.workflowIds.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">No workflow IDs added</p>
+                  ) : (
+                    workflowSettings.workflowIds.map((id) => (
+                      <div
+                        key={id}
+                        className="flex items-center gap-1 bg-secondary text-secondary-foreground px-3 py-1 rounded-full text-sm"
+                      >
+                        {id}
+                        <button
+                          onClick={() => handleRemoveWorkflowId(id)}
                           className="ml-1 text-muted-foreground hover:text-foreground"
                         >
                           <X className="h-3 w-3" />
