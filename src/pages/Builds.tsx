@@ -25,7 +25,8 @@ import {
   RefreshCcw, 
   Search, 
   X,
-  FileText
+  FileText,
+  Github
 } from "lucide-react";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
