@@ -6,14 +6,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { WorkflowRun, JobRun } from "@/utils/githubWorkflowApp/types";
-import { fetchWorkflowJobs, fetchWorkflowArtifacts } from "@/utils/githubWorkflowApp";
+import { WorkflowRun, JobRun, ReleaseInfo } from "@/utils/githubWorkflowApp/types";
+import { fetchWorkflowJobs, fetchWorkflowArtifacts, fetchJobLogs, parseReleaseInfo } from "@/utils/githubWorkflowApp";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import JobDetails from "./JobDetails";
 import { getStatusBadge } from "./BuildsUtils";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Button } from "@/components/ui/button";
+import { useState as useToastState } from "@/hooks/use-toast";
 
 interface BuildDetailsDialogProps {
   run: WorkflowRun;
@@ -27,6 +29,8 @@ const BuildDetailsDialog = ({ run, open, onClose }: BuildDetailsDialogProps) => 
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("info");
   const [activeJobIndex, setActiveJobIndex] = useState(0);
+  const [loadingLogs, setLoadingLogs] = useState(false);
+  const { toast } = useToastState();
 
   useEffect(() => {
     if (open) {
@@ -48,6 +52,43 @@ const BuildDetailsDialog = ({ run, open, onClose }: BuildDetailsDialogProps) => 
     }
   }, [open, run]);
 
+  const fetchLogs = async (jobIndex: number) => {
+    if (jobIndex === activeJobIndex && jobs[jobIndex].logs) {
+      // Logs already loaded
+      return;
+    }
+
+    setActiveJobIndex(jobIndex);
+    setLoadingLogs(true);
+    
+    try {
+      const jobId = jobs[jobIndex].id;
+      const logs = await fetchJobLogs(jobId);
+      
+      // Update the job with logs and parsed releases
+      const parsedReleases = parseReleaseInfo(logs);
+      
+      setJobs(prevJobs => {
+        const newJobs = [...prevJobs];
+        newJobs[jobIndex] = {
+          ...newJobs[jobIndex],
+          logs,
+          parsedReleases
+        };
+        return newJobs;
+      });
+    } catch (err) {
+      console.error("Error loading job logs:", err);
+      toast({
+        title: "Error",
+        description: "Failed to load job logs. Please try again later.",
+        variant: "destructive"
+      });
+    } finally {
+      setLoadingLogs(false);
+    }
+  };
+
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return new Intl.DateTimeFormat('en-US', {
@@ -63,7 +104,7 @@ const BuildDetailsDialog = ({ run, open, onClose }: BuildDetailsDialogProps) => 
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-2xl md:max-w-3xl h-[80vh] max-h-[800px] flex flex-col">
+      <DialogContent className="sm:max-w-2xl md:max-w-3xl h-[80vh] max-h-[800px] flex flex-col overflow-hidden">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-3">
             <span>Workflow Run #{run.run_number}</span>
@@ -72,7 +113,7 @@ const BuildDetailsDialog = ({ run, open, onClose }: BuildDetailsDialogProps) => 
         </DialogHeader>
         
         <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col overflow-hidden">
-          <TabsList className="mb-4">
+          <TabsList className="mb-4 overflow-x-auto flex-wrap">
             <TabsTrigger value="info">Info</TabsTrigger>
             <TabsTrigger value="jobs">Jobs</TabsTrigger>
             <TabsTrigger value="artifacts">Artifacts</TabsTrigger>
@@ -178,9 +219,9 @@ const BuildDetailsDialog = ({ run, open, onClose }: BuildDetailsDialogProps) => 
                     {jobs.map((job, index) => (
                       <Badge
                         key={job.id}
-                        variant={activeJobIndex === index ? "default" : "outline"}
+                        variant={activeJobIndex === index ? "secondary" : "outline"}
                         className="cursor-pointer"
-                        onClick={() => setActiveJobIndex(index)}
+                        onClick={() => fetchLogs(index)}
                       >
                         {job.name}
                       </Badge>
@@ -188,7 +229,10 @@ const BuildDetailsDialog = ({ run, open, onClose }: BuildDetailsDialogProps) => 
                   </div>
                   
                   {jobs[activeJobIndex] && (
-                    <JobDetails job={jobs[activeJobIndex]} />
+                    <JobDetails 
+                      job={jobs[activeJobIndex]} 
+                      loading={loadingLogs} 
+                    />
                   )}
                 </div>
               )}

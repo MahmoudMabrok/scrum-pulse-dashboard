@@ -1,8 +1,7 @@
-
 import { extractReleaseNotesFromZip } from '../zip';
 import { fetchWithAuth } from './api';
 import { getStoredSettings, getWorkflowSettings } from './settings';
-import { WorkflowRun, JobRun, WorkflowSettings, WorkflowConfig, Artifact, ArtifactData, FetchParams } from './types';
+import { WorkflowRun, JobRun, WorkflowSettings, WorkflowConfig, Artifact, ArtifactData, FetchParams, ReleaseInfo } from './types';
 
 export type { WorkflowRun, JobRun, WorkflowSettings, WorkflowConfig, Artifact, FetchParams };
 export { getWorkflowSettings };
@@ -151,6 +150,74 @@ export const fetchWorkflowJobs = async (run: WorkflowRun): Promise<JobRun[]> => 
     console.error(`Error fetching jobs for run ${run.id}:`, error);
     return [];
   }
+};
+
+export const fetchJobLogs = async (jobId: number): Promise<string> => {
+  try {
+    const settings = getStoredSettings();
+    if (!settings || !settings.organization || !settings.repository) {
+      throw new Error('GitHub settings not configured');
+    }
+    
+    let repoPath = settings.repository;
+    if (repoPath === '*') {
+      repoPath = settings.organization;
+    }
+    
+    const endpoint = `/repos/${settings.organization}/${repoPath}/actions/jobs/${jobId}/logs`;
+    
+    // We need raw text, not JSON
+    const response = await fetch(`${settings.baseUrl || 'https://api.github.com'}${endpoint}`, {
+      headers: {
+        'Authorization': `token ${settings.token}`
+      }
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Failed to fetch logs: ${response.status} ${response.statusText}`);
+    }
+    
+    return await response.text();
+  } catch (error) {
+    console.error(`Error fetching logs for job ${jobId}:`, error);
+    return 'Failed to fetch logs.';
+  }
+};
+
+export const parseReleaseInfo = (logs: string): ReleaseInfo[] => {
+  const releases: ReleaseInfo[] = [];
+  
+  // Regex to match patterns like "Uploaded IPA successfully and created release 1.0.418-dev (720)"
+  const ipaRegex = /Uploaded IPA successfully and created release ([\d.]+[^(]*) \((\d+)\)/i;
+  const apkRegex = /Uploaded APK successfully and created release ([\d.]+[^(]*) \((\d+)\)/i;
+  
+  // Find all matches
+  const ipaMatches = [...logs.matchAll(new RegExp(ipaRegex, 'gi'))];
+  const apkMatches = [...logs.matchAll(new RegExp(apkRegex, 'gi'))];
+  
+  // Process IPA matches
+  ipaMatches.forEach(match => {
+    if (match[1] && match[2]) {
+      releases.push({
+        type: 'IPA',
+        version: match[1].trim(),
+        buildNumber: match[2].trim()
+      });
+    }
+  });
+  
+  // Process APK matches
+  apkMatches.forEach(match => {
+    if (match[1] && match[2]) {
+      releases.push({
+        type: 'APK',
+        version: match[1].trim(),
+        buildNumber: match[2].trim()
+      });
+    }
+  });
+  
+  return releases;
 };
 
 export const fetchWorkflowArtifacts = async (run: WorkflowRun): Promise<Artifact[]> => {

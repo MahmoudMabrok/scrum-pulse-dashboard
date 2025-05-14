@@ -1,3 +1,4 @@
+
 export interface WorkflowSettings {
   workflowIds: WorkflowConfig[];
 }
@@ -28,6 +29,7 @@ export interface WorkflowRun {
   actor: string;
   jobs_url: string;
   artifacts_url?: string;
+  prs?: string;
 }
 
 export interface JobRun {
@@ -38,6 +40,8 @@ export interface JobRun {
   started_at: string;
   completed_at: string;
   steps: JobStep[];
+  logs?: string;
+  parsedReleases?: ReleaseInfo[];
 }
 
 export interface JobStep {
@@ -66,4 +70,10 @@ export interface FetchParams {
   branch?: string;
   page?: number;
   per_page?: number;
+}
+
+export interface ReleaseInfo {
+  type: 'IPA' | 'APK';
+  version: string;
+  buildNumber: string;
 }
