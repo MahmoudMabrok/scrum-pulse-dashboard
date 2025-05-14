@@ -104,23 +104,18 @@ export const fetchWorkflowRuns = async (
   // Sort runs by creation date (newest first)
   allRuns.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
   
-  // Filter by search term if provided
-  if (search && search.trim() !== '') {
-    const searchLower = search.toLowerCase();
-    return allRuns.filter(run => 
-      run.name.toLowerCase().includes(searchLower) ||
-      run.display_title.toLowerCase().includes(searchLower) ||
-      run.actor.toLowerCase().includes(searchLower) ||
-      run.branch.toLowerCase().includes(searchLower) ||
-      run.commit.toLowerCase().includes(searchLower) ||
-      run.commit_message.toLowerCase().includes(searchLower) ||
-      run.repository.toLowerCase().includes(searchLower) ||
-      run.status.toLowerCase().includes(searchLower) ||
-      (run.conclusion && run.conclusion.toLowerCase().includes(searchLower)) ||
-      (run.prs && run.prs.toLowerCase().includes(searchLower))
-    );
-  }
-  
+  // loop on runs run get prs into it 
+    for (const run of allRuns) {
+      try {
+        const data = await fetchWorkflowArtifactData(run);
+        if (data ) {
+          run.prs = data.prs;
+        }
+      } catch (error) {
+        console.error(`Error fetching PRs for run ${run.id}:`, error);
+      }
+    }
+    
   return allRuns;
 };
 

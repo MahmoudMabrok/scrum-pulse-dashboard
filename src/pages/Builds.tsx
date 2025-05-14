@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { fetchWorkflowRuns, WorkflowConfig } from "@/utils/githubWorkflowApp";
+import { fetchWorkflowRuns, WorkflowConfig, WorkflowRun } from "@/utils/githubWorkflowApp";
 import { getWorkflowSettings } from "@/utils/githubWorkflowApp/settings";
 import { useToast } from "@/hooks/use-toast";
 import LoadingSkeletons from "@/components/builds/LoadingSkeletons";
@@ -28,6 +28,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 const Builds = () => {
   const [search, setSearch] = useState("");
   const [branch, setBranch] = useState("");
+  const [searchResults, setSearchResults] = useState<WorkflowRun[] | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [totalPages, setTotalPages] = useState(1);
@@ -74,10 +75,26 @@ const Builds = () => {
     ),
     enabled: !!activeWorkflowId,
   });
+
+  useEffect(() => {
+    if (search) {
+      handleSearch();
+    } else {
+      // If search is empty, reset search results
+      setSearchResults(null);
+    }
+  }
+  , [search]);
   
   const handleSearch = () => {
-    setCurrentPage(1); // Reset to first page when searching
-    refetch();
+    const filteredSearch = workflowRuns?.filter(run =>
+      run.prs?.toLowerCase().includes(search.toLowerCase()));
+
+    console.log("Filtered Search Results: search , results", search , filteredSearch);
+      
+
+    // setSearchQuery(search);
+    setSearchResults(filteredSearch);
   };
   
   const handleClearFilters = () => {
@@ -211,7 +228,7 @@ const Builds = () => {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <BuildList workflowRuns={workflowRuns} />
+                  <BuildList workflowRuns={searchResults ?? workflowRuns} />
                   
                   {/* Only show pagination if we have runs or are on a page > 1 */}
                   {(workflowRuns.length > 0 || currentPage > 1) && (
