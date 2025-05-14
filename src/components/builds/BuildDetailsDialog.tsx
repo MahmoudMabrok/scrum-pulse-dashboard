@@ -15,7 +15,7 @@ import { getStatusBadge } from "./BuildsUtils";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
-import { useState as useToastState } from "@/hooks/use-toast";
+import {  useToast } from "@/hooks/use-toast";
 
 interface BuildDetailsDialogProps {
   run: WorkflowRun;
@@ -30,7 +30,7 @@ const BuildDetailsDialog = ({ run, open, onClose }: BuildDetailsDialogProps) => 
   const [activeTab, setActiveTab] = useState("info");
   const [activeJobIndex, setActiveJobIndex] = useState(0);
   const [loadingLogs, setLoadingLogs] = useState(false);
-  const { toast } = useToastState();
+  const { toast } = useToast();
 
   useEffect(() => {
     if (open) {
