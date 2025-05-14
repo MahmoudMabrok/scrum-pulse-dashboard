@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import {
   Dialog,
@@ -13,6 +14,11 @@ import { Card, CardHeader, CardContent, CardTitle } from "@/components/ui/card";
 import { getStatusBadge } from "./BuildsUtils";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
+import {
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger,
+} from "@/components/ui/hover-card";
 
 interface BuildDetailsDialogProps {
   run: WorkflowRun;
@@ -78,7 +84,7 @@ const BuildDetailsDialog = ({ run, open, onClose }: BuildDetailsDialogProps) => 
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-2xl md:max-w-3xl max-h-[80vh] flex flex-col overflow-hidden">
+      <DialogContent className="sm:max-w-2xl md:max-w-3xl max-h-[85vh] flex flex-col overflow-hidden">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-3">
             <span>Workflow Run #{run.run_number}</span>
@@ -86,7 +92,7 @@ const BuildDetailsDialog = ({ run, open, onClose }: BuildDetailsDialogProps) => 
           </DialogTitle>
         </DialogHeader>
         
-        <ScrollArea className="flex-1">
+        <ScrollArea className="flex-1 overflow-auto">
           <div className="space-y-6 p-1">
             {/* Pull Requests Section */}
             {run.prs && (
@@ -95,9 +101,16 @@ const BuildDetailsDialog = ({ run, open, onClose }: BuildDetailsDialogProps) => 
                   <CardTitle className="text-base">Pull Requests</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <pre className="bg-muted p-3 rounded-md overflow-x-auto text-sm whitespace-pre-wrap">
-                    {run.prs}
-                  </pre>
+                  <HoverCard>
+                    <HoverCardTrigger>
+                      <span className="underline decoration-dotted cursor-help">
+                        {run.prs}
+                      </span>
+                    </HoverCardTrigger>
+                    <HoverCardContent>
+                      <p>Pull request numbers associated with this workflow run</p>
+                    </HoverCardContent>
+                  </HoverCard>
                 </CardContent>
               </Card>
             )}
