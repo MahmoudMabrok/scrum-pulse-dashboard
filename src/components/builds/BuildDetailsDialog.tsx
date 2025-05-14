@@ -42,17 +42,17 @@ const BuildDetailsDialog = ({ run, open, onClose }: BuildDetailsDialogProps) => 
         try {
           const jobsData = await fetchWorkflowJobs(run);
           // Filter jobs that include "build-publish" in the title
-          const filteredJobs = jobsData.filter(job => 
+          const filteredJobs = jobsData.filter(job =>
             job.name.toLowerCase().includes("build-publish")
           );
           setJobs(filteredJobs);
-          
+
           // Fetch logs for all filtered jobs in parallel
           await Promise.all(filteredJobs.map(async (job, index) => {
             try {
               const logs = await fetchJobLogs(job.id);
               const parsedReleases = parseReleaseInfo(logs);
-              
+
               setJobs(prevJobs => {
                 const newJobs = [...prevJobs];
                 newJobs[index] = {
@@ -66,7 +66,7 @@ const BuildDetailsDialog = ({ run, open, onClose }: BuildDetailsDialogProps) => 
               console.error(`Error loading logs for job ${job.id}:`, err);
             }
           }));
-          
+
         } catch (err) {
           console.error("Error loading jobs:", err);
           setError("Failed to load job details. Please try again later.");
@@ -83,6 +83,51 @@ const BuildDetailsDialog = ({ run, open, onClose }: BuildDetailsDialogProps) => 
       loadJobs();
     }
   }, [open, run, toast]);
+  // copyMethod to copy release information to clipboard for all jobs combined
+  const copyAllReleaseInfo = () => {
+    if (jobs.length === 0) {
+      toast({
+        title: "No data to copy",
+        description: "There is no release information available to copy",
+        variant: "default"
+      });
+      return;
+    }
+
+    // Format copy content for all jobs
+    const copyText = jobs.map(job =>
+      job.parsedReleases.map(release =>
+        `${extractName(job.name)} Version: ${release.version} Build: ${release.buildNumber}`
+      ).join('\n\n')
+    ).join('\n\n');
+
+    navigator.clipboard.writeText(copyText)
+      .then(() => {
+        toast({
+          title: "Copied!",
+          description: "Release information copied to clipboard",
+          variant: "default"
+        });
+      })
+      .catch(err => {
+        console.error("Copy failed:", err);
+        toast({
+          title: "Copy failed",
+          description: "Failed to copy information to clipboard",
+          variant: "destructive"
+        });
+      });
+  };
+
+  // Function to extract names from the job name
+  const extractName = (message: string) => {
+    const regex = /\(([^)]+)\)/;
+    const match = message.match(regex);
+    if (match && match[1]) {
+      return match[1].split(",").map(name => name.trim());
+    }
+    return [];
+  }
 
   const copyReleaseInfo = (job: JobRun) => {
     if (!job.parsedReleases || job.parsedReleases.length === 0) {
@@ -95,8 +140,8 @@ const BuildDetailsDialog = ({ run, open, onClose }: BuildDetailsDialogProps) => 
     }
 
     // Format copy content for each release
-    const copyText = job.parsedReleases.map(release => 
-      `Job: ${job.name}\nPlatform: ${release.type}\nVersion: ${release.version}\nBuild: ${release.buildNumber}`
+    const copyText = job.parsedReleases.map(release =>
+      `${extractName(job.name)} Version: ${release.version} Build: ${release.buildNumber}`
     ).join('\n\n');
 
     navigator.clipboard.writeText(copyText)
@@ -126,7 +171,7 @@ const BuildDetailsDialog = ({ run, open, onClose }: BuildDetailsDialogProps) => 
             {getStatusBadge(run.status, run.conclusion)}
           </DialogTitle>
         </DialogHeader>
-        
+
         <ScrollArea className="flex-1 overflow-auto">
           <div className="space-y-6 p-1">
             {/* Pull Requests Section */}
@@ -149,11 +194,24 @@ const BuildDetailsDialog = ({ run, open, onClose }: BuildDetailsDialogProps) => 
                 </CardContent>
               </Card>
             )}
-            
+
             {/* Jobs Section */}
             <div className="space-y-4">
-              <h3 className="text-lg font-semibold">Build Jobs</h3>
-              
+              <div className="flex items-center gap-2">
+                <h3 className="text-lg font-semibold">Build Jobs</h3>
+                {!loading && <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => copyAllReleaseInfo()}
+                  title="Copy release information"
+                >
+                  <Copy className="h-4 w-4" />
+                  <span className="sr-only">Copy</span>
+                </Button>
+                }
+              </div>
+
+
               {loading ? (
                 <div className="space-y-4">
                   <Skeleton className="h-24 w-full" />
@@ -175,9 +233,9 @@ const BuildDetailsDialog = ({ run, open, onClose }: BuildDetailsDialogProps) => 
                         <div className="flex flex-wrap items-center justify-between gap-2">
                           <CardTitle className="text-base">{job.name}</CardTitle>
                           <div className="flex items-center gap-2">
-                            <Button 
-                              variant="ghost" 
-                              size="icon" 
+                            <Button
+                              variant="ghost"
+                              size="icon"
                               onClick={() => copyReleaseInfo(job)}
                               title="Copy release information"
                             >
@@ -192,8 +250,8 @@ const BuildDetailsDialog = ({ run, open, onClose }: BuildDetailsDialogProps) => 
                         {job.parsedReleases && job.parsedReleases.length > 0 ? (
                           <div className="grid gap-4 md:grid-cols-2">
                             {job.parsedReleases.map((release, index) => (
-                              <div 
-                                key={index} 
+                              <div
+                                key={index}
                                 className="border rounded-lg p-4 shadow-sm bg-card"
                               >
                                 <div className="flex items-center mb-2">
