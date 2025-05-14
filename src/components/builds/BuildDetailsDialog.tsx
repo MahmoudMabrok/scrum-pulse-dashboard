@@ -14,6 +14,8 @@ import { Card, CardHeader, CardContent, CardTitle } from "@/components/ui/card";
 import { getStatusBadge } from "./BuildsUtils";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
+import { Copy } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import {
   HoverCard,
   HoverCardContent,
@@ -82,6 +84,39 @@ const BuildDetailsDialog = ({ run, open, onClose }: BuildDetailsDialogProps) => 
     }
   }, [open, run, toast]);
 
+  const copyReleaseInfo = (job: JobRun) => {
+    if (!job.parsedReleases || job.parsedReleases.length === 0) {
+      toast({
+        title: "No data to copy",
+        description: "There is no release information available to copy",
+        variant: "default"
+      });
+      return;
+    }
+
+    // Format copy content for each release
+    const copyText = job.parsedReleases.map(release => 
+      `Job: ${job.name}\nPlatform: ${release.type}\nVersion: ${release.version}\nBuild: ${release.buildNumber}`
+    ).join('\n\n');
+
+    navigator.clipboard.writeText(copyText)
+      .then(() => {
+        toast({
+          title: "Copied!",
+          description: "Release information copied to clipboard",
+          variant: "default"
+        });
+      })
+      .catch(err => {
+        console.error("Copy failed:", err);
+        toast({
+          title: "Copy failed",
+          description: "Failed to copy information to clipboard",
+          variant: "destructive"
+        });
+      });
+  };
+
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-2xl md:max-w-3xl max-h-[85vh] flex flex-col overflow-hidden">
@@ -139,7 +174,18 @@ const BuildDetailsDialog = ({ run, open, onClose }: BuildDetailsDialogProps) => 
                       <CardHeader className="py-3 bg-muted/30">
                         <div className="flex flex-wrap items-center justify-between gap-2">
                           <CardTitle className="text-base">{job.name}</CardTitle>
-                          {getStatusBadge(job.status, job.conclusion)}
+                          <div className="flex items-center gap-2">
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              onClick={() => copyReleaseInfo(job)}
+                              title="Copy release information"
+                            >
+                              <Copy className="h-4 w-4" />
+                              <span className="sr-only">Copy</span>
+                            </Button>
+                            {getStatusBadge(job.status, job.conclusion)}
+                          </div>
                         </div>
                       </CardHeader>
                       <CardContent className="pt-4">
