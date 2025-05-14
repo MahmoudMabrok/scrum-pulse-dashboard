@@ -1,6 +1,11 @@
-
 export interface WorkflowSettings {
-  workflowIds: string[];
+  workflowIds: WorkflowConfig[];
+}
+
+export interface WorkflowConfig {
+  id: string;
+  name: string;
+  pageSize: number;
 }
 
 export interface WorkflowRun {
@@ -52,6 +57,13 @@ export interface Artifact {
   updated_at: string;
   download_url: string;
 }
+
 export interface ArtifactData {
   prs: string
+}
+
+export interface FetchParams {
+  branch?: string;
+  page?: number;
+  per_page?: number;
 }

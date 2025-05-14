@@ -1,229 +1,215 @@
 
-import { useState } from "react";
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogHeader, 
+import { useEffect, useState } from "react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { WorkflowRun, JobRun } from "@/utils/githubWorkflowApp/types";
+import { fetchWorkflowJobs, fetchWorkflowArtifacts } from "@/utils/githubWorkflowApp";
+import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useQuery } from "@tanstack/react-query";
-import { 
-  WorkflowRun, 
-  JobRun, 
-  fetchWorkflowJobs,
-} from "@/utils/githubWorkflow";
-import { useIsMobile } from "@/hooks/use-mobile";
-import { useToast } from "@/components/ui/use-toast";
-import { Github, FileText, Loader, Search, Download } from "lucide-react";
-import { Card, CardHeader, CardContent, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { getStatusBadge } from "./BuildsUtils";
 import JobDetails from "./JobDetails";
-import { fetchWorkflowArtifactData } from "@/utils/githubWorkflowApp/index";
+import { getStatusBadge } from "./BuildsUtils";
+import { Skeleton } from "@/components/ui/skeleton";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface BuildDetailsDialogProps {
   run: WorkflowRun;
-  onClose: () => void;
   open: boolean;
+  onClose: () => void;
 }
 
-const BuildDetailsDialog = ({ run, onClose, open }: BuildDetailsDialogProps) => {
-  const [jobSearch, setJobSearch] = useState("");
-  const [activeJobId, setActiveJobId] = useState<number | null>(null);
-  const [refreshKey, setRefreshKey] = useState(0);
-  const [activeTab, setActiveTab] = useState<"info" | "jobs" | "artifacts">("info");
-  const { toast } = useToast();
-  const isMobile = useIsMobile();
-  
-  // Fetch jobs for this workflow run
-  const { 
-    data: jobRuns, 
-    isLoading: isLoadingJobs 
-  } = useQuery({
-    queryKey: ["workflowJobs", run.id, refreshKey],
-    queryFn: () => fetchWorkflowJobs(run),
-    enabled: open && activeTab === "jobs",
-  });
-  
-  // Filter jobs based on search
-  const filteredJobs = jobRuns ? jobRuns.filter(job => 
-    job.name.toLowerCase().includes(jobSearch.toLowerCase())
-  ) : [];
-  
-  // Set first job as active if none selected and jobs are loaded
-  useState(() => {
-    if (filteredJobs.length > 0 && !activeJobId) {
-      setActiveJobId(filteredJobs[0].id);
-    } else if (filteredJobs.length === 0) {
-      setActiveJobId(null);
+const BuildDetailsDialog = ({ run, open, onClose }: BuildDetailsDialogProps) => {
+  const [jobs, setJobs] = useState<JobRun[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState("info");
+  const [activeJobIndex, setActiveJobIndex] = useState(0);
+
+  useEffect(() => {
+    if (open) {
+      const loadJobs = async () => {
+        setLoading(true);
+        setError(null);
+        try {
+          const jobsData = await fetchWorkflowJobs(run);
+          setJobs(jobsData);
+        } catch (err) {
+          console.error("Error loading jobs:", err);
+          setError("Failed to load job details. Please try again later.");
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      loadJobs();
     }
-  });
-  
-  // Get the currently active job
-  const activeJob = filteredJobs.find(job => job.id === activeJobId);
-  
-  const handleJobSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setJobSearch(e.target.value);
+  }, [open, run]);
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return new Intl.DateTimeFormat('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: true
+    }).format(date);
   };
 
   return (
-    <Dialog open={open} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-2xl md:max-w-3xl h-[80vh] max-h-[800px] flex flex-col">
         <DialogHeader>
-          <DialogTitle className="text-lg">Workflow: {run.name}</DialogTitle>
+          <DialogTitle className="flex items-center gap-3">
+            <span>Workflow Run #{run.run_number}</span>
+            {getStatusBadge(run.status, run.conclusion)}
+          </DialogTitle>
         </DialogHeader>
-
-        <Tabs 
-          defaultValue="info" 
-          value={activeTab} 
-          onValueChange={(value) => setActiveTab(value as "info" | "jobs" | "artifacts")}
-          className="w-full"
-        >
+        
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col overflow-hidden">
           <TabsList className="mb-4">
             <TabsTrigger value="info">Info</TabsTrigger>
             <TabsTrigger value="jobs">Jobs</TabsTrigger>
             <TabsTrigger value="artifacts">Artifacts</TabsTrigger>
           </TabsList>
-
-          <div className="flex-1 overflow-hidden flex flex-col min-h-0">
-            <ScrollArea className="h-[60vh]">
-              <TabsContent value="info" className="p-2">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+          
+          <TabsContent value="info" className="flex-1 overflow-hidden">
+            <ScrollArea className="h-full">
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <h3 className="text-sm font-semibold">Workflow Run</h3>
-                    <p className="text-sm">#{run.run_number}.{run.run_attempt} - {run.display_title}</p>
+                    <h3 className="font-semibold text-sm text-muted-foreground mb-1">Name</h3>
+                    <p>{run.name}</p>
                   </div>
                   <div>
-                    <h3 className="text-sm font-semibold">Status</h3>
-                    <p className="text-sm">{getStatusBadge(run.status, run.conclusion)}</p>
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-semibold">Triggered By</h3>
-                    <p className="text-sm">{run.actor} via {run.event}</p>
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-semibold">Repository</h3>
-                    <p className="text-sm">{run.repository}</p>
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-semibold">Branch</h3>
-                    <p className="text-sm">{run.branch}</p>
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-semibold">Commit</h3>
-                    <p className="text-sm font-mono">{run.commit}</p>
-                  </div>
-                  <div className="col-span-1 md:col-span-2">
-                    <h3 className="text-sm font-semibold">Commit Message</h3>
-                    <p className="text-sm">{run.commit_message}</p>
+                    <h3 className="font-semibold text-sm text-muted-foreground mb-1">Repository</h3>
+                    <p>{run.repository}</p>
                   </div>
                 </div>
-              </TabsContent>
-
-              <TabsContent value="jobs" className="p-2 space-y-4">
-                {isLoadingJobs ? (
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <Loader className="h-4 w-4 animate-spin" />
-                    <span>Loading jobs...</span>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <h3 className="font-semibold text-sm text-muted-foreground mb-1">Branch</h3>
+                    <p>{run.branch}</p>
                   </div>
-                ) : jobRuns && jobRuns.length > 0 ? (
-                  <div className="space-y-4">
-                    {/* Job search input */}
-                    <div className="relative">
-                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                      <Input 
-                        className="pl-9 mb-3"
-                        placeholder="Search jobs..." 
-                        value={jobSearch}
-                        onChange={handleJobSearch}
-                      />
-                    </div>
-
-                    {/* Job tabs */}
-                    <div className="mb-4">
-                      <ScrollArea className="pb-2">
-                        <div className="flex space-x-2 min-w-max">
-                          {filteredJobs.map((job) => (
-                            <Button 
-                              key={job.id}
-                              variant={activeJobId === job.id ? "default" : "outline"}
-                              size="sm"
-                              onClick={() => setActiveJobId(job.id)}
-                              className="flex items-center gap-2"
-                            >
-                              {job.name}
-                              {getStatusBadge(job.status, job.conclusion)}
-                            </Button>
-                          ))}
-                        </div>
-                      </ScrollArea>
-                    </div>
-
-                    {/* Selected job details */}
-                    {activeJob ? (
-                      <JobDetails job={activeJob} />
-                    ) : (
-                      <p className="text-muted-foreground text-center py-4">
-                        {filteredJobs.length > 0 
-                          ? "Select a job to view details" 
-                          : "No jobs match your search"}
-                      </p>
-                    )}
+                  <div>
+                    <h3 className="font-semibold text-sm text-muted-foreground mb-1">Commit</h3>
+                    <p>
+                      {run.commit}{" "}
+                      <span className="text-sm text-muted-foreground">
+                        ({run.commit_message})
+                      </span>
+                    </p>
                   </div>
-                ) : (
-                  <p className="text-muted-foreground">No job information available.</p>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <h3 className="font-semibold text-sm text-muted-foreground mb-1">Triggered By</h3>
+                    <p>{run.actor}</p>
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-sm text-muted-foreground mb-1">Event</h3>
+                    <p>{run.event}</p>
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <h3 className="font-semibold text-sm text-muted-foreground mb-1">Created</h3>
+                    <p>{formatDate(run.created_at)}</p>
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-sm text-muted-foreground mb-1">Updated</h3>
+                    <p>{formatDate(run.updated_at)}</p>
+                  </div>
+                </div>
+                
+                {run.prs && (
+                  <div>
+                    <h3 className="font-semibold text-sm text-muted-foreground mb-1">
+                      Pull Requests
+                    </h3>
+                    <pre className="bg-muted p-3 rounded-md overflow-x-auto text-sm whitespace-pre-wrap">
+                      {run.prs}
+                    </pre>
+                  </div>
                 )}
-              </TabsContent>
-
+                
+                <div>
+                  <h3 className="font-semibold text-sm text-muted-foreground mb-1">Links</h3>
+                  <div className="flex gap-2">
+                    <a 
+                      href={run.html_url} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="text-primary hover:underline text-sm flex items-center"
+                    >
+                      View on GitHub
+                    </a>
+                  </div>
+                </div>
+              </div>
             </ScrollArea>
-          </div>
+          </TabsContent>
+          
+          <TabsContent value="jobs" className="flex-1 overflow-hidden">
+            <ScrollArea className="h-full">
+              {loading ? (
+                <div className="space-y-4">
+                  <Skeleton className="h-12 w-full" />
+                  <Skeleton className="h-48 w-full" />
+                  <Skeleton className="h-12 w-full" />
+                </div>
+              ) : error ? (
+                <div className="p-4 border border-destructive text-destructive rounded-md">
+                  {error}
+                </div>
+              ) : jobs.length === 0 ? (
+                <div className="text-center py-8">No job information available</div>
+              ) : (
+                <div className="space-y-6">
+                  <div className="flex flex-wrap gap-2">
+                    {jobs.map((job, index) => (
+                      <Badge
+                        key={job.id}
+                        variant={activeJobIndex === index ? "default" : "outline"}
+                        className="cursor-pointer"
+                        onClick={() => setActiveJobIndex(index)}
+                      >
+                        {job.name}
+                      </Badge>
+                    ))}
+                  </div>
+                  
+                  {jobs[activeJobIndex] && (
+                    <JobDetails job={jobs[activeJobIndex]} />
+                  )}
+                </div>
+              )}
+            </ScrollArea>
+          </TabsContent>
+          
+          <TabsContent value="artifacts" className="flex-1 overflow-hidden">
+            <ScrollArea className="h-full">
+              <div className="space-y-4">
+                <div className="text-center py-8">
+                  <p className="text-muted-foreground">
+                    Artifacts view is coming soon. For now, you can use the GitHub link to view artifacts.
+                  </p>
+                </div>
+              </div>
+            </ScrollArea>
+          </TabsContent>
         </Tabs>
-
-        <div className="mt-4 flex flex-wrap justify-center gap-4">
-          <a 
-            href={run.html_url} 
-            target="_blank" 
-            rel="noopener noreferrer"
-            className="flex items-center text-sm text-primary hover:underline"
-          >
-            <Github className="h-4 w-4 mr-1" />
-            View on GitHub
-          </a>
-          <a 
-            href="#"
-            onClick={(e) => {
-              e.preventDefault();
-              toast({
-                title: "Logs downloaded",
-                description: "Build logs have been downloaded"
-              });
-            }}
-            className="flex items-center text-sm text-primary hover:underline"
-          >
-            <FileText className="h-4 w-4 mr-1" />
-            Download Logs
-          </a>
-        </div>
       </DialogContent>
     </Dialog>
   );
-};
-
-// Helper function to format bytes
-const formatBytes = (bytes: number, decimals = 2) => {
-  if (bytes === 0) return '0 Bytes';
-  
-  const k = 1024;
-  const dm = decimals < 0 ? 0 : decimals;
-  const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
-  
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
 };
 
 export default BuildDetailsDialog;

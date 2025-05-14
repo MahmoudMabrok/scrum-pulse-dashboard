@@ -2,9 +2,9 @@
 import { extractReleaseNotesFromZip } from '../zip';
 import { fetchWithAuth } from './api';
 import { getStoredSettings, getWorkflowSettings } from './settings';
-import { WorkflowRun, JobRun, WorkflowSettings, Artifact, ArtifactData } from './types';
+import { WorkflowRun, JobRun, WorkflowSettings, WorkflowConfig, Artifact, ArtifactData, FetchParams } from './types';
 
-export type { WorkflowRun, JobRun, WorkflowSettings, Artifact };
+export type { WorkflowRun, JobRun, WorkflowSettings, WorkflowConfig, Artifact, FetchParams };
 export { getWorkflowSettings };
 
 const getFullRepoPath = async () => {
@@ -22,7 +22,11 @@ const getFullRepoPath = async () => {
   return `${settings.organization}/${repoPath}`;
 }
 
-export const fetchWorkflowRuns = async (search: string = '', specificWorkflowId: string | null = null): Promise<WorkflowRun[]> => {
+export const fetchWorkflowRuns = async (
+  search: string = '', 
+  specificWorkflowId: string | null = null,
+  params: FetchParams = {}
+): Promise<WorkflowRun[]> => {
   const settings = getStoredSettings();
   if (!settings || !settings.organization || !settings.repository) {
     throw new Error('GitHub settings not configured');
@@ -35,17 +39,37 @@ export const fetchWorkflowRuns = async (search: string = '', specificWorkflowId:
   
   const allRuns: WorkflowRun[] = [];
 
-  const  repoPath = await getFullRepoPath();
+  const repoPath = await getFullRepoPath();
   
   // If a specific workflow ID is provided, only fetch that one
   const workflowsToFetch = specificWorkflowId 
-    ? [specificWorkflowId] 
+    ? workflowSettings.workflowIds.filter(wf => wf.id === specificWorkflowId)
     : workflowSettings.workflowIds;
   
-  for (const workflowId of workflowsToFetch) {
+  if (workflowsToFetch.length === 0) {
+    return [];
+  }
+  
+  for (const workflow of workflowsToFetch) {
     try {
-      // For organization-wide settings
-      const endpoint = `/repos/${repoPath}/actions/workflows/${workflowId}/runs?per_page=10`;
+      // Build query parameters
+      const queryParams = new URLSearchParams();
+      
+      // Set page size from workflow config or params
+      const pageSize = params.per_page || workflow.pageSize || 10;
+      queryParams.set('per_page', pageSize.toString());
+      
+      // Set page number if provided
+      if (params.page) {
+        queryParams.set('page', params.page.toString());
+      }
+      
+      // Set branch filter if provided
+      if (params.branch) {
+        queryParams.set('branch', params.branch);
+      }
+      
+      const endpoint = `/repos/${repoPath}/actions/workflows/${workflow.id}/runs?${queryParams.toString()}`;
       const data = await fetchWithAuth(endpoint);
       
       if (data.workflow_runs && Array.isArray(data.workflow_runs)) {
@@ -74,7 +98,7 @@ export const fetchWorkflowRuns = async (search: string = '', specificWorkflowId:
         allRuns.push(...runs);
       }
     } catch (error) {
-      console.error(`Error fetching workflow ${workflowId}:`, error);
+      console.error(`Error fetching workflow ${workflow.id}:`, error);
     }
   }
   
@@ -93,7 +117,8 @@ export const fetchWorkflowRuns = async (search: string = '', specificWorkflowId:
       run.commit_message.toLowerCase().includes(searchLower) ||
       run.repository.toLowerCase().includes(searchLower) ||
       run.status.toLowerCase().includes(searchLower) ||
-      (run.conclusion && run.conclusion.toLowerCase().includes(searchLower))
+      (run.conclusion && run.conclusion.toLowerCase().includes(searchLower)) ||
+      (run.prs && run.prs.toLowerCase().includes(searchLower))
     );
   }
   
@@ -128,54 +153,82 @@ export const fetchWorkflowJobs = async (run: WorkflowRun): Promise<JobRun[]> => 
   }
 };
 
+export const fetchWorkflowArtifacts = async (run: WorkflowRun): Promise<Artifact[]> => {
+  try {
+    if (!run.artifacts_url) {
+      throw new Error('No artifacts URL available for this run');
+    }
+    
+    const data = await fetchWithAuth(run.artifacts_url);
+    
+    if (data.artifacts && Array.isArray(data.artifacts)) {
+      return data.artifacts.map((artifact: any) => ({
+        id: artifact.id,
+        name: artifact.name,
+        size_in_bytes: artifact.size_in_bytes,
+        archive_download_url: artifact.archive_download_url,
+        expires_at: artifact.expires_at,
+        created_at: artifact.created_at,
+        updated_at: artifact.updated_at,
+        download_url: artifact.archive_download_url
+      }));
+    }
+    
+    return [];
+  } catch (error) {
+    console.error(`Error fetching artifacts for run ${run.id}:`, error);
+    return [];
+  }
+};
+
 export const fetchWorkflowArtifactData = async (run: WorkflowRun): Promise<ArtifactData> => {
   console.log(`Fetching artifacts for run ${run.id}...`);
 
   const emptyResponse = {prs: ""};
   
   try {
-   const  repoPath = await getFullRepoPath();
+    const repoPath = await getFullRepoPath();
   
     const data = await fetchWithAuth(`/repos/${repoPath}/actions/runs/${run.id}/artifacts`);
 
     console.log(`Fetched artifacts for run ${run.id}:`, data);
 
-    if (data.artifacts && Array.isArray(data.artifacts)) {
+    if (data.artifacts && Array.isArray(data.artifacts) && data.artifacts.length > 0) {
       const releaseNotesArtifact = data.artifacts[0];
+      
       if (!releaseNotesArtifact) {
         console.log(`No release notes artifact found for run ${run.id}`);
-        throw new Error(`No release notes artifact found for run ${run.id}`);
+        return emptyResponse;
       }
+      
       const zipUrl = releaseNotesArtifact.archive_download_url;
+      console.log(`Artifact download URL: ${zipUrl}`);
 
-      console.log(`name ${zipUrl} ${releaseNotesArtifact.archive_download_url}`);
+      const settings = getStoredSettings();
+      if (!settings || !settings.token) {
+        throw new Error('GitHub token not configured');
+      }
 
       const zipResponse = await fetch(zipUrl, {
         headers: {
-          Authorization: `token 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`
-          // DO NOT include Accept: "application/vnd.github.v3+json" here
+          Authorization: `token ${settings.token}`
         }
       });
   
-    
       if (!zipResponse.ok) {
         throw new Error(`Failed to download artifact: ${zipResponse.statusText}`);
       }
 
       const zipBuffer = await zipResponse.arrayBuffer();
-
       const releaseNotesData = await extractReleaseNotesFromZip(zipBuffer);
 
       console.log(`Parsed release notes data:`, releaseNotesData);
-
       return releaseNotesData;
-      
     }
-    
     
     return emptyResponse;
   } catch (error) {
     console.error(`Error fetching artifacts for run ${run.id}:`, error);
-    throw new Error(`Error fetching artifacts`);
+    return emptyResponse;
   }
 };

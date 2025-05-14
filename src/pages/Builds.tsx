@@ -7,59 +7,54 @@ import {
   CardHeader, 
   CardTitle 
 } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableHead, 
-  TableHeader, 
-  TableRow 
-} from "@/components/ui/table";
 import { 
   AlertTriangle, 
   Info, 
   Loader, 
-  RefreshCcw, 
-  Search, 
-  X,
-  FileText,
-  Github
+  RefreshCcw,
 } from "lucide-react";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { fetchWorkflowRuns, WorkflowRun } from "@/utils/githubWorkflow";
-import { useToast } from "@/components/ui/use-toast";
+import { fetchWorkflowRuns, WorkflowConfig } from "@/utils/githubWorkflowApp";
+import { getWorkflowSettings } from "@/utils/githubWorkflowApp/settings";
+import { useToast } from "@/hooks/use-toast";
 import LoadingSkeletons from "@/components/builds/LoadingSkeletons";
 import BuildList from "@/components/builds/BuildList";
+import BuildPagination from "@/components/builds/BuildPagination";
+import BuildsFilters from "@/components/builds/BuildsFilters";
 import { useIsMobile } from "@/hooks/use-mobile";
 
 const Builds = () => {
   const [search, setSearch] = useState("");
+  const [branch, setBranch] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [totalPages, setTotalPages] = useState(1);
   const [activeWorkflowId, setActiveWorkflowId] = useState<string | null>(null);
-  const [searchResults, setSearchResults] = useState<WorkflowRun[] | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const { toast } = useToast();
   const isMobile = useIsMobile();
   
-  // Get workflow settings from localStorage
-  const getWorkflowSettings = () => {
-    const savedSettings = localStorage.getItem('workflow_settings');
-    if (!savedSettings) {
-      return { workflowIds: [] };
-    }
-    return JSON.parse(savedSettings);
-  };
-  
   const workflowSettings = getWorkflowSettings();
+  const activeWorkflow = workflowSettings.workflowIds.find(wf => wf.id === activeWorkflowId) || null;
   
-  // Set initial active workflow ID when component mounts
+  // Set initial active workflow ID and page size when component mounts
   useEffect(() => {
     if (workflowSettings.workflowIds.length > 0 && !activeWorkflowId) {
-      setActiveWorkflowId(workflowSettings.workflowIds[0]);
+      setActiveWorkflowId(workflowSettings.workflowIds[0].id);
+      if (workflowSettings.workflowIds[0].pageSize) {
+        setPageSize(workflowSettings.workflowIds[0].pageSize);
+      }
     }
-  }, []);
+  }, [workflowSettings.workflowIds]);
+
+  // Update page size when active workflow changes
+  useEffect(() => {
+    if (activeWorkflow && activeWorkflow.pageSize) {
+      setPageSize(activeWorkflow.pageSize);
+    }
+  }, [activeWorkflow]);
   
   const { 
     data: workflowRuns, 
@@ -67,36 +62,29 @@ const Builds = () => {
     error, 
     refetch 
   } = useQuery({
-    queryKey: ["workflowRuns", activeWorkflowId, refreshKey],
-    queryFn: () => fetchWorkflowRuns(activeWorkflowId),
+    queryKey: ["workflowRuns", activeWorkflowId, currentPage, pageSize, branch, refreshKey],
+    queryFn: () => fetchWorkflowRuns(
+      search, 
+      activeWorkflowId,
+      {
+        branch: branch || undefined,
+        page: currentPage,
+        per_page: pageSize
+      }
+    ),
     enabled: !!activeWorkflowId,
   });
-
-  useEffect(() => {
-    if (search) {
-      handleSearch();
-    } else {
-      // If search is empty, reset search results
-      setSearchResults(null);
-    }
-  }
-  , [search]);
   
   const handleSearch = () => {
-    const filteredSearch = workflowRuns?.filter(run =>
-      run.prs?.toLowerCase().includes(search.toLowerCase()));
-
-    console.log("Filtered Search Results: search , results", search , filteredSearch);
-      
-
-    // setSearchQuery(search);
-    setSearchResults(filteredSearch);
+    setCurrentPage(1); // Reset to first page when searching
+    refetch();
   };
   
-  const handleClearSearch = () => {
+  const handleClearFilters = () => {
     setSearch("");
-    // setSearchQuery("");
-    setSearchResults(null);
+    setBranch("");
+    setCurrentPage(1);
+    refetch();
   };
   
   const handleRefresh = () => {
@@ -110,11 +98,37 @@ const Builds = () => {
   
   const handleTabChange = (workflowId: string) => {
     setActiveWorkflowId(workflowId);
+    setCurrentPage(1); // Reset to first page when changing workflows
   };
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    refetch();
+  };
+
+  const handlePageSizeChange = (size: number) => {
+    setPageSize(size);
+    setCurrentPage(1); // Reset to first page when changing page size
+    refetch();
+  };
+  
+  // Estimate total pages based on the current page size and data
+  useEffect(() => {
+    if (workflowRuns && workflowRuns.length === pageSize) {
+      // If we have a full page of results, there might be more pages
+      setTotalPages(Math.max(currentPage + 1, totalPages));
+    } else if (workflowRuns && workflowRuns.length === 0 && currentPage > 1) {
+      // If we have no results and we're not on page 1, we've gone too far
+      setTotalPages(currentPage - 1);
+    } else if (workflowRuns && workflowRuns.length < pageSize && currentPage === 1) {
+      // If we have less than a full page of results on page 1, there's only 1 page
+      setTotalPages(1);
+    }
+  }, [workflowRuns, currentPage, pageSize]);
   
   if (workflowSettings.workflowIds.length === 0) {
     return (
-      <div className="container mx-auto p-6">
+      <div className="container mx-auto p-4 md:p-6">
         <h2 className="text-2xl font-bold mb-6">Workflow Builds</h2>
         <Alert className="mb-6">
           <Info className="h-4 w-4" />
@@ -149,40 +163,25 @@ const Builds = () => {
       <Tabs value={activeWorkflowId || ""} onValueChange={handleTabChange} className="mb-6">
         <div className="overflow-x-auto">
           <TabsList className="mb-4 inline-flex">
-            {workflowSettings.workflowIds.map((id) => (
-              <TabsTrigger key={id} value={id}>
-                Workflow {id}
+            {workflowSettings.workflowIds.map((workflow) => (
+              <TabsTrigger key={workflow.id} value={workflow.id}>
+                {workflow.name}
               </TabsTrigger>
             ))}
           </TabsList>
         </div>
         
-        {workflowSettings.workflowIds.map((workflowId) => (
-          <TabsContent key={workflowId} value={workflowId}>
-            <div className="flex flex-col md:flex-row gap-2 mb-6">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input 
-                  className="pl-9"
-                  placeholder="Search builds by name, branch, commit, status..." 
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      handleSearch();
-                    }
-                  }}
-                />
-                {search && (
-                  <button 
-                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                    onClick={handleClearSearch}
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                )}
-              </div>
-              <Button onClick={handleSearch}>Search</Button>
+        {workflowSettings.workflowIds.map((workflow) => (
+          <TabsContent key={workflow.id} value={workflow.id}>
+            <div className="mb-6">
+              <BuildsFilters
+                search={search}
+                branch={branch}
+                onSearchChange={setSearch}
+                onBranchChange={setBranch}
+                onSearch={handleSearch}
+                onClear={handleClearFilters}
+              />
             </div>
             
             {isLoading ? (
@@ -207,10 +206,23 @@ const Builds = () => {
             ) : (
               <Card>
                 <CardHeader>
-                  <CardTitle>Latest Workflow Runs</CardTitle>
+                  <CardTitle>
+                    {branch ? `Builds for branch: ${branch}` : 'Latest Workflow Runs'}
+                  </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <BuildList workflowRuns={searchResults ?? workflowRuns} />
+                  <BuildList workflowRuns={workflowRuns} />
+                  
+                  {/* Only show pagination if we have runs or are on a page > 1 */}
+                  {(workflowRuns.length > 0 || currentPage > 1) && (
+                    <BuildPagination
+                      currentPage={currentPage}
+                      totalPages={totalPages}
+                      pageSize={pageSize}
+                      onPageChange={handlePageChange}
+                      onPageSizeChange={handlePageSizeChange}
+                    />
+                  )}
                 </CardContent>
               </Card>
             )}
