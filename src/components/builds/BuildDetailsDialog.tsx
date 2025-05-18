@@ -21,6 +21,7 @@ import {
   HoverCardContent,
   HoverCardTrigger,
 } from "@/components/ui/hover-card";
+import { format } from "date-fns";
 
 interface BuildDetailsDialogProps {
   run: WorkflowRun;
@@ -83,6 +84,25 @@ const BuildDetailsDialog = ({ run, open, onClose }: BuildDetailsDialogProps) => 
       loadJobs();
     }
   }, [open, run, toast]);
+  
+  // Format date strings to DD-MM-YYYY
+  const formatDate = (dateString: string) => {
+    try {
+      return format(new Date(dateString), "dd-MM-yyyy");
+    } catch (error) {
+      return dateString;
+    }
+  };
+
+  // Format time strings to HH:MM:SS
+  const formatTime = (dateString: string) => {
+    try {
+      return format(new Date(dateString), "HH:mm:ss");
+    } catch (error) {
+      return "";
+    }
+  };
+
   // copyMethod to copy release information to clipboard for all jobs combined
   const copyAllReleaseInfo = () => {
     if (jobs.length === 0) {
@@ -96,9 +116,9 @@ const BuildDetailsDialog = ({ run, open, onClose }: BuildDetailsDialogProps) => 
 
     // Format copy content for all jobs
     const copyText = jobs.map(job =>
-      job.parsedReleases.map(release =>
+      job.parsedReleases?.map(release =>
         `${extractName(job.name)} Version: ${release.version} Build: ${release.buildNumber}`
-      ).join('\n\n')
+      ).join('\n\n') || ""
     ).join('\n\n');
 
     navigator.clipboard.writeText(copyText)
@@ -170,6 +190,9 @@ const BuildDetailsDialog = ({ run, open, onClose }: BuildDetailsDialogProps) => 
             <span>Workflow Run #{run.run_number}</span>
             {getStatusBadge(run.status, run.conclusion)}
           </DialogTitle>
+          <div className="text-sm text-muted-foreground">
+            ID: {run.id} • Created: {formatDate(run.created_at)} {formatTime(run.created_at)}
+          </div>
         </DialogHeader>
 
         <ScrollArea className="flex-1 overflow-auto">

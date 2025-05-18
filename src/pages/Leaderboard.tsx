@@ -1,3 +1,4 @@
+
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -9,8 +10,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { fetchTeamData, TeamMember, DateFilter } from "@/utils/githubApi";
-import { useToast } from "@/components/ui/use-toast";
+import { fetchTeamData, TeamMember, DateFilter, generateLeaderboardData } from "@/utils/api";
+import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useState } from "react";
 import { Loader, AlertTriangle, Info, Calendar, MessageSquare, Check } from "lucide-react";
@@ -23,16 +24,7 @@ import {
   SelectTrigger, 
   SelectValue 
 } from "@/components/ui/select";
-
-// Helper function to generate leaderboard data directly from team data
-const generateLeaderboardData = (teamData: TeamMember[]) => {
-  return teamData.map((member) => ({
-    login: member.login,
-    totalPRs: member.prs.length,
-    totalCommentsGiven: member.commentsGiven,
-    totalApprovalsGiven: member.approvalsGiven,
-  }));
-};
+import { format } from "date-fns";
 
 const Leaderboard = () => {
   const { toast } = useToast();
@@ -59,6 +51,10 @@ const Leaderboard = () => {
   const handleMemberDetails = (member: TeamMember) => {
     setSelectedMember(member);
     setDialogOpen(true);
+  };
+
+  const formatDate = (dateString: string) => {
+    return format(new Date(dateString), "dd-MM-yyyy");
   };
 
   if (isLoading) {
@@ -105,7 +101,7 @@ const Leaderboard = () => {
     );
   }
 
-  // Generate leaderboard data directly from the team data
+  // Generate leaderboard data from the team data
   const leaderboardData = generateLeaderboardData(teamData);
   
   // Sort the leaderboard data based on the selected sort field

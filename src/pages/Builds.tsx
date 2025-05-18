@@ -28,7 +28,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 const Builds = () => {
   const [search, setSearch] = useState("");
   const [branch, setBranch] = useState("");
-  const [searchResults, setSearchResults] = useState<WorkflowRun[] | null>(null);
+  const [filteredRuns, setFilteredRuns] = useState<WorkflowRun[] | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [totalPages, setTotalPages] = useState(1);
@@ -63,12 +63,11 @@ const Builds = () => {
     error, 
     refetch 
   } = useQuery({
-    queryKey: ["workflowRuns", activeWorkflowId, currentPage, pageSize, branch, refreshKey],
+    queryKey: ["workflowRuns", activeWorkflowId, currentPage, pageSize, refreshKey],
     queryFn: () => fetchWorkflowRuns(
       search, 
       activeWorkflowId,
       {
-        branch: branch || undefined,
         page: currentPage,
         per_page: pageSize
       }
@@ -76,32 +75,44 @@ const Builds = () => {
     enabled: !!activeWorkflowId,
   });
 
+  // Apply local filters whenever runs data changes or filters change
   useEffect(() => {
-    if (search) {
-      handleSearch();
-    } else {
-      // If search is empty, reset search results
-      setSearchResults(null);
+    if (!workflowRuns) {
+      setFilteredRuns(null);
+      return;
     }
-  }
-  , [search]);
+    
+    let results = [...workflowRuns];
+    
+    // Apply branch filter locally
+    if (branch) {
+      results = results.filter(run => 
+        run.branch.toLowerCase().includes(branch.toLowerCase())
+      );
+    }
+    
+    // Apply search filter locally
+    if (search) {
+      results = results.filter(run => 
+        run.prs?.toLowerCase().includes(search.toLowerCase()) || 
+        run.name.toLowerCase().includes(search.toLowerCase()) || 
+        run.commit_message.toLowerCase().includes(search.toLowerCase()) ||
+        String(run.id).includes(search)
+      );
+    }
+    
+    setFilteredRuns(results);
+  }, [workflowRuns, branch, search]);
   
   const handleSearch = () => {
-    const filteredSearch = workflowRuns?.filter(run =>
-      run.prs?.toLowerCase().includes(search.toLowerCase()));
-
-    console.log("Filtered Search Results: search , results", search , filteredSearch);
-      
-
-    // setSearchQuery(search);
-    setSearchResults(filteredSearch);
+    // Local search is already handled in the useEffect above
+    console.log("Search applied:", search);
   };
   
   const handleClearFilters = () => {
     setSearch("");
     setBranch("");
-    setCurrentPage(1);
-    refetch();
+    setFilteredRuns(workflowRuns);
   };
   
   const handleRefresh = () => {
@@ -116,6 +127,8 @@ const Builds = () => {
   const handleTabChange = (workflowId: string) => {
     setActiveWorkflowId(workflowId);
     setCurrentPage(1); // Reset to first page when changing workflows
+    setBranch(""); // Clear branch filter
+    setSearch(""); // Clear search filter
   };
 
   const handlePageChange = (page: number) => {
@@ -157,6 +170,9 @@ const Builds = () => {
       </div>
     );
   }
+  
+  // Use the filtered runs if available, otherwise use the original workflow runs
+  const displayRuns = filteredRuns || workflowRuns;
   
   return (
     <div className="container mx-auto p-4 md:p-6">
@@ -212,12 +228,15 @@ const Builds = () => {
                   <p className="mt-2 text-muted-foreground">Error: {(error as Error).message || "Unknown error"}</p>
                 </AlertDescription>
               </Alert>
-            ) : !workflowRuns || workflowRuns.length === 0 ? (
+            ) : !displayRuns || displayRuns.length === 0 ? (
               <Alert className="mb-6">
                 <Info className="h-4 w-4" />
                 <AlertTitle>No Workflow Data</AlertTitle>
                 <AlertDescription>
-                  No workflow runs found for this workflow ID. Please verify the workflow ID is correct or try a different one.
+                  {branch || search ? 
+                    "No workflow runs found matching your filters. Try adjusting your search criteria." :
+                    "No workflow runs found for this workflow ID. Please verify the workflow ID is correct or try a different one."
+                  }
                 </AlertDescription>
               </Alert>
             ) : (
@@ -228,10 +247,10 @@ const Builds = () => {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <BuildList workflowRuns={searchResults ?? workflowRuns} />
+                  <BuildList workflowRuns={displayRuns} />
                   
                   {/* Only show pagination if we have runs or are on a page > 1 */}
-                  {(workflowRuns.length > 0 || currentPage > 1) && (
+                  {(workflowRuns && (workflowRuns.length > 0 || currentPage > 1)) && (
                     <BuildPagination
                       currentPage={currentPage}
                       totalPages={totalPages}
