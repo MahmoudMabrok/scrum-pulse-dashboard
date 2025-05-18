@@ -9,6 +9,8 @@ export interface GithubSettings {
   teamMembers: string[];
 }
 
+export type DateFilter = 'all' | 'week' | 'two_weeks';
+
 export interface PullRequest {
   id: number;
   number: number;
@@ -22,6 +24,8 @@ export interface PullRequest {
   approvals: number;
   dissmissed: number;
   repository: string;
+  approvalUsers?: string[];
+  dismissalUsers?: string[];
 }
 
 export interface ReviewDetail {
@@ -99,19 +103,37 @@ const fetchWithAuth = async (url: string, options: RequestInit = {}) => {
   return response.json();
 };
 
-export const fetchPullRequestsForUser = async (username: string, limit = 10): Promise<PullRequest[]> => {
+const getDateFilterQuery = (filter: DateFilter): string => {
+  if (filter === 'all') return '';
+  
+  const now = new Date();
+  let daysAgo = filter === 'week' ? 7 : 14; // 7 days for 'week', 14 for 'two_weeks'
+  
+  const pastDate = new Date(now);
+  pastDate.setDate(now.getDate() - daysAgo);
+  
+  // Format as YYYY-MM-DD for GitHub's query syntax
+  const formattedDate = pastDate.toISOString().split('T')[0];
+  
+  return ` updated:>=${formattedDate}`;
+};
+
+export const fetchPullRequestsForUser = async (username: string, dateFilter: DateFilter = 'all', limit = 10): Promise<PullRequest[]> => {
   const settings = getStoredSettings();
   if (!settings || !settings.organization || !settings.repository) {
     throw new Error('GitHub settings not configured');
   }
   
-  // Adding state:open to only fetch open PRs
+  // Adding date filter to the query
   let query = `repo:${settings.organization}/${settings.repository} author:${username}`;
   
   // If we're searching within an org instead of a specific repo
   if (settings.repository === '*') {
     query = `org:${settings.organization} author:${username}`;
   }
+  
+  // Add date filter if it's not 'all'
+  query += getDateFilterQuery(dateFilter);
   
   const searchUrl = `/search/issues?q=${encodeURIComponent(query)}+is:pr&sort=updated&order=desc&per_page=${limit}`;
   const searchResults = await fetchWithAuth(searchUrl);
@@ -126,10 +148,6 @@ export const fetchPullRequestsForUser = async (username: string, limit = 10): Pr
     // Fetch PR reviews using the correct endpoint
     const reviewsUrl = `/repos/${prDetails.base.repo.full_name}/pulls/${item.number}/reviews`;
     const reviews = await fetchWithAuth(reviewsUrl);
-
-    // if (prUrl.includes('11468')) {
-    //   alert(`review ${JSON.stringify(reviews)}`);
-    // }
     
     // Fetch PR comments using the correct endpoint
     const commentsUrl = `/repos/${prDetails.base.repo.full_name}/pulls/${item.number}/comments`;
@@ -142,9 +160,20 @@ export const fetchPullRequestsForUser = async (username: string, limit = 10): Pr
       status = 'closed';
     }
     
-    // Count all APPROVED reviews
-    const approvals = reviews.filter((review: any) => review.state === 'APPROVED').length ?? 0;
-    const dissmissed = reviews.filter((review: any) => review.state === 'DISMISSED').length ?? 0;
+    // Count all APPROVED reviews and collect usernames
+    const approvalUsers: string[] = [];
+    const dismissalUsers: string[] = [];
+    
+    reviews.forEach((review: any) => {
+      if (review.state === 'APPROVED') {
+        approvalUsers.push(review.user.login);
+      } else if (review.state === 'DISMISSED') {
+        dismissalUsers.push(review.user.login);
+      }
+    });
+    
+    const approvals = approvalUsers.length;
+    const dissmissed = dismissalUsers.length;
     
     // Count all comments (including review comments)
     const commentsCount = comments.length + reviews.filter((review: any) => 
@@ -164,13 +193,15 @@ export const fetchPullRequestsForUser = async (username: string, limit = 10): Pr
       approvals,
       dissmissed,
       repository: prDetails.base.repo.full_name,
+      approvalUsers,
+      dismissalUsers
     });
   }
   
   return prs;
 };
 
-export const fetchTeamData = async (): Promise<TeamMember[]> => {
+export const fetchTeamData = async (dateFilter: DateFilter = 'all'): Promise<TeamMember[]> => {
   const settings = getStoredSettings();
   if (!settings || !settings.teamMembers || !settings.teamMembers.length) {
     return [];
@@ -182,7 +213,7 @@ export const fetchTeamData = async (): Promise<TeamMember[]> => {
   // Process each team member
   for (const username of settings.teamMembers) {
     try {
-      const prs = await fetchPullRequestsForUser(username);
+      const prs = await fetchPullRequestsForUser(username, dateFilter);
       allPRs.push(...prs);
       
       teamData.push({

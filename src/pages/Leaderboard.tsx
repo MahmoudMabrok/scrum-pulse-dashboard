@@ -1,4 +1,3 @@
-
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -10,13 +9,20 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { fetchTeamData, TeamMember } from "@/utils/githubApi";
+import { fetchTeamData, TeamMember, DateFilter } from "@/utils/githubApi";
 import { useToast } from "@/components/ui/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useState } from "react";
 import { Loader, AlertTriangle, Info, Calendar, MessageSquare, Check } from "lucide-react";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import MemberDetailsDialog from "@/components/leaderboard/MemberDetailsDialog";
+import { 
+  Select, 
+  SelectContent, 
+  SelectItem, 
+  SelectTrigger, 
+  SelectValue 
+} from "@/components/ui/select";
 
 // Helper function to generate leaderboard data directly from team data
 const generateLeaderboardData = (teamData: TeamMember[]) => {
@@ -33,11 +39,12 @@ const Leaderboard = () => {
   const [sortField, setSortField] = useState<'totalPRs' | 'totalCommentsGiven' | 'totalApprovalsGiven'>('totalApprovalsGiven');
   const [selectedMember, setSelectedMember] = useState<TeamMember | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [dateFilter, setDateFilter] = useState<DateFilter>("all");
 
-  // Use the same query as Dashboard to avoid duplicate API calls
+  // Use the query with date filter parameter
   const { data: teamData, isLoading, error } = useQuery({
-    queryKey: ["teamData"],
-    queryFn: fetchTeamData,
+    queryKey: ["teamData", dateFilter],
+    queryFn: () => fetchTeamData(dateFilter),
     meta: {
       onError: () => {
         toast({
@@ -106,7 +113,23 @@ const Leaderboard = () => {
 
   return (
     <div className="container mx-auto p-6">
-      <h2 className="text-2xl font-bold mb-6">Leaderboard</h2>
+      <div className="flex justify-between items-center mb-6">
+        <h2 className="text-2xl font-bold">Leaderboard</h2>
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-muted-foreground">Time period:</span>
+          <Select value={dateFilter} onValueChange={(value: DateFilter) => setDateFilter(value)}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Filter by date" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All time</SelectItem>
+              <SelectItem value="week">Last week</SelectItem>
+              <SelectItem value="two_weeks">Last two weeks</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+      
       <Card>
         <CardHeader>
           <CardTitle>Team Performance</CardTitle>
