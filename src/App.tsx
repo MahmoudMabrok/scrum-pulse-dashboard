@@ -6,7 +6,7 @@ import {
   QueryClient, 
   QueryClientProvider 
 } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { HashRouter as Router, Route, Routes } from "react-router-dom";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import Dashboard from "./pages/Dashboard";
 import Leaderboard from "./pages/Leaderboard";
@@ -36,7 +36,7 @@ const App = () => (
         <SidebarProvider>
           <Toaster />
           <Sonner />
-          <BrowserRouter>
+          <Router>
             <Routes>
               <Route path="/" element={<MainLayout />}>
                 <Route index element={<Dashboard />} />
@@ -46,7 +46,7 @@ const App = () => (
                 <Route path="*" element={<NotFound />} />
               </Route>
             </Routes>
-          </BrowserRouter>
+          </Router>
         </SidebarProvider>
       </TooltipProvider>
     </QueryClientProvider>
