@@ -1,9 +1,9 @@
 import { extractReleaseNotesFromZip } from '../zip';
 import { fetchWithAuth } from './api';
 import { getStoredSettings, getWorkflowSettings } from './settings';
-import { WorkflowRun, JobRun, WorkflowSettings, WorkflowConfig, Artifact, ArtifactData, FetchParams, ReleaseInfo } from './types';
+import { WorkflowRun, JobRun, WorkflowSettings, WorkflowConfig, Artifact, ArtifactData, FetchParams, ReleaseInfo, PRInfo } from './types';
 
-export type { WorkflowRun, JobRun, WorkflowSettings, WorkflowConfig, Artifact, FetchParams };
+export type { WorkflowRun, JobRun, WorkflowSettings, WorkflowConfig, Artifact, FetchParams, PRInfo };
 export { getWorkflowSettings };
 
 const getFullRepoPath = async () => {
@@ -104,17 +104,18 @@ export const fetchWorkflowRuns = async (
   // Sort runs by creation date (newest first)
   allRuns.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
   
-  // loop on runs run get prs into it 
-    for (const run of allRuns) {
-      try {
-        const data = await fetchWorkflowArtifactData(run);
-        if (data ) {
-          run.prs = data.prs;
-        }
-      } catch (error) {
-        console.error(`Error fetching PRs for run ${run.id}:`, error);
+  // Loop on runs to get PR info
+  for (const run of allRuns) {
+    try {
+      const data = await fetchWorkflowArtifactData(run);
+      if (data) {
+        run.prs = data.prs;
+        run.prDetails = data.prDetails;
       }
+    } catch (error) {
+      console.error(`Error fetching PRs for run ${run.id}:`, error);
     }
+  }
     
   return allRuns;
 };
@@ -246,7 +247,7 @@ export const fetchWorkflowArtifacts = async (run: WorkflowRun): Promise<Artifact
 export const fetchWorkflowArtifactData = async (run: WorkflowRun): Promise<ArtifactData> => {
   console.log(`Fetching artifacts for run ${run.id}...`);
 
-  const emptyResponse = {prs: ""};
+  const emptyResponse = { prs: "", prDetails: [] };
   
   try {
     const repoPath = await getFullRepoPath();

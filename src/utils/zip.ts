@@ -1,4 +1,6 @@
+
 import JSZip from 'jszip';
+import { PRInfo } from '@/utils/api/githubDataTypes';
 
 /**
  * Extract release notes from ZIP archive
@@ -24,33 +26,51 @@ export async function extractReleaseNotesFromZip(zipBuffer) {
     const content = await releaseNotesFile.async("string");
     
     console.log("Release notes content extracted");
-    console.log(extractPRNumbers(content));
     
-    // Parse the content based on your format (example for markdown table)
-    return { prs: extractPRNumbers(content)};
+    // Parse the content to extract PR info
+    const prInfo = extractPRInfo(content);
+    
+    return { 
+      prs: prInfo.map(pr => pr.number).join(', '),
+      prDetails: prInfo
+    };
   }
 
 
-// add method to extract  PR numbers which are in the format of pulls/number
-/**
- * PR Number Extractor
- * 
- * This script extracts all PR numbers from text that match the pattern "#[number]"
- * which is commonly used in git commit messages and PR references.
- */
-
-export function extractPRNumbers(text) {
-    // Regular expression to find PR numbers in the format #[number]
-    const prRegex = /#\[(\d+)\]/g;
-    
-    // Array to store the extracted PR numbers
-    const prNumbers = [];
-    
-    // Find all matches
-    let match;
-    while ((match = prRegex.exec(text)) !== null) {
-      prNumbers.push(match[1]);
-    }
-    
-    return prNumbers.join(', ');
+// Extract PR numbers and titles from text
+export function extractPRInfo(text: string): PRInfo[] {
+  // Regular expressions to find PR numbers and titles
+  // Looking for patterns like #[123] PR Title Here or similar formats
+  const prRegex = /#\[(\d+)\]\s*([^#\n]+)/g;
+  
+  // Array to store the extracted PR information
+  const prInfo: PRInfo[] = [];
+  
+  // Find all matches
+  let match;
+  while ((match = prRegex.exec(text)) !== null) {
+    prInfo.push({
+      number: match[1],
+      title: match[2].trim()
+    });
   }
+  
+  return prInfo;
+}
+
+// Legacy function kept for compatibility
+export function extractPRNumbers(text: string): string {
+  // Regular expression to find PR numbers in the format #[number]
+  const prRegex = /#\[(\d+)\]/g;
+  
+  // Array to store the extracted PR numbers
+  const prNumbers = [];
+  
+  // Find all matches
+  let match;
+  while ((match = prRegex.exec(text)) !== null) {
+    prNumbers.push(match[1]);
+  }
+  
+  return prNumbers.join(', ');
+}

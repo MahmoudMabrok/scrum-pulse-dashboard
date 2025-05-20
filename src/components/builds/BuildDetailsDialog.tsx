@@ -21,6 +21,11 @@ import {
   HoverCardContent,
   HoverCardTrigger,
 } from "@/components/ui/hover-card";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { format } from "date-fns";
 
 interface BuildDetailsDialogProps {
@@ -182,6 +187,14 @@ const BuildDetailsDialog = ({ run, open, onClose }: BuildDetailsDialogProps) => 
       });
   };
 
+  // Create a mapping of PR numbers to their titles for tooltips
+  const prTitleMap = new Map();
+  if (run.prDetails && Array.isArray(run.prDetails)) {
+    run.prDetails.forEach(pr => {
+      prTitleMap.set(pr.number, pr.title);
+    });
+  }
+
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-2xl md:max-w-3xl max-h-[85vh] flex flex-col overflow-hidden">
@@ -204,16 +217,23 @@ const BuildDetailsDialog = ({ run, open, onClose }: BuildDetailsDialogProps) => 
                   <CardTitle className="text-base">Pull Requests</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <HoverCard>
-                    <HoverCardTrigger>
-                      <span className="underline decoration-dotted cursor-help">
-                        {run.prs}
-                      </span>
-                    </HoverCardTrigger>
-                    <HoverCardContent>
-                      <p>Pull request numbers associated with this workflow run</p>
-                    </HoverCardContent>
-                  </HoverCard>
+                  <div className="flex flex-wrap gap-2">
+                    {run.prs.split(', ').map((prNumber, index) => (
+                      <Tooltip key={index}>
+                        <TooltipTrigger asChild>
+                          <Badge 
+                            variant="outline" 
+                            className="cursor-help hover:bg-accent"
+                          >
+                            #{prNumber}
+                          </Badge>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          {prTitleMap.get(prNumber) || "No title available"}
+                        </TooltipContent>
+                      </Tooltip>
+                    ))}
+                  </div>
                 </CardContent>
               </Card>
             )}

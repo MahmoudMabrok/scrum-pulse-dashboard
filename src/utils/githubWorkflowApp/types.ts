@@ -30,6 +30,7 @@ export interface WorkflowRun {
   jobs_url: string;
   artifacts_url?: string;
   prs?: string;
+  prDetails?: PRInfo[];
 }
 
 export interface JobRun {
@@ -63,7 +64,8 @@ export interface Artifact {
 }
 
 export interface ArtifactData {
-  prs: string
+  prs: string;
+  prDetails?: PRInfo[];
 }
 
 export interface FetchParams {
@@ -76,4 +78,9 @@ export interface ReleaseInfo {
   type: 'IPA' | 'APK';
   version: string;
   buildNumber: string;
+}
+
+export interface PRInfo {
+  number: string;
+  title: string;
 }

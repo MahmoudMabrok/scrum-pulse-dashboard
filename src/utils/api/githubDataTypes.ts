@@ -51,3 +51,8 @@ export interface LeaderboardItem {
   totalCommentsGiven: number;
   totalApprovalsGiven: number;
 }
+
+export interface PRInfo {
+  number: string;
+  title: string;
+}
