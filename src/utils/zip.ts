@@ -39,9 +39,9 @@ export async function extractReleaseNotesFromZip(zipBuffer) {
 
 // Extract PR numbers and titles from text
 export function extractPRInfo(text: string): PRInfo[] {
-  // Regular expressions to find PR numbers and titles
-  // Looking for patterns like #[123] PR Title Here or similar formats
-  const prRegex = /#\[(\d+)\]\s*([^#\n]+)/g;
+  // Updated regex to match patterns like "- chore: [Manual PR] rc/beta-2.2.0 to master 19/05/2025 (#[11696])"
+  // The regex now captures the entire line text as the title and the PR number in the format #[number]
+  const prRegex = /^.*\(#\[(\d+)\]\).*$/gm;
   
   // Array to store the extracted PR information
   const prInfo: PRInfo[] = [];
@@ -49,9 +49,15 @@ export function extractPRInfo(text: string): PRInfo[] {
   // Find all matches
   let match;
   while ((match = prRegex.exec(text)) !== null) {
+    const fullLine = match[0].trim();
+    const prNumber = match[1];
+    
+    // Extract the title (full line text up to the PR number)
+    const title = fullLine.substring(0, fullLine.lastIndexOf(`(#[${prNumber}])`)).trim();
+    
     prInfo.push({
-      number: match[1],
-      title: match[2].trim()
+      number: prNumber,
+      title: title
     });
   }
   
