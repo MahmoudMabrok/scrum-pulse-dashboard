@@ -26,6 +26,11 @@ const PRDetailsCard = ({ prs, prDetails }: PRDetailsCardProps) => {
 
   if (!prs) return null;
 
+  // Parse the PR numbers from the string if prDetails is not provided
+  const prNumbers = prDetails 
+    ? prDetails.map(pr => pr.number) 
+    : prs.split(', ');
+
   return (
     <Card>
       <CardHeader className="py-3">
@@ -33,23 +38,33 @@ const PRDetailsCard = ({ prs, prDetails }: PRDetailsCardProps) => {
       </CardHeader>
       <CardContent>
         <div className="flex flex-wrap gap-2">
-          {prDetails?.map(({title, number}) => (
-            <TooltipProvider key={title}>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Badge 
-                    variant="outline" 
-                    className="cursor-help hover:bg-accent"
-                  >
-                    #{number}
-                  </Badge>
-                </TooltipTrigger>
-                <TooltipContent>
-                  {title}
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          ))}
+          {prDetails && Array.isArray(prDetails) ? (
+            // If we have PR details, use them to show tooltips
+            prDetails.map((pr) => (
+              <TooltipProvider key={pr.number}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Badge 
+                      variant="outline" 
+                      className="cursor-help hover:bg-accent"
+                    >
+                      #{pr.number}
+                    </Badge>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    {pr.title}
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            ))
+          ) : (
+            // Fallback to just showing PR numbers without tooltips if we don't have details
+            prNumbers.map((prNumber, index) => (
+              <Badge key={index} variant="outline">
+                #{prNumber}
+              </Badge>
+            ))
+          )}
         </div>
       </CardContent>
     </Card>

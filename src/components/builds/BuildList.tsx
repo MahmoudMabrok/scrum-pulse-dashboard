@@ -17,7 +17,8 @@ import { format } from "date-fns";
 import { 
   Tooltip, 
   TooltipContent, 
-  TooltipTrigger 
+  TooltipTrigger,
+  TooltipProvider 
 } from "@/components/ui/tooltip";
 
 interface BuildListProps {
@@ -49,67 +50,67 @@ const BuildList = ({ workflowRuns }: BuildListProps) => {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {workflowRuns.map((run) => {
-            // Create a mapping of PR numbers to their titles for this run
-            const prTitleMap = new Map();
-            if (run.prDetails && Array.isArray(run.prDetails)) {
-              run.prDetails.forEach(pr => {
-                prTitleMap.set(pr.number, pr.title);
-              });
-            }
-            
-            return (
-              <TableRow key={run.id}>
-                <TableCell>
-                  <Button 
-                    variant="link" 
-                    className="p-0 h-auto" 
-                    onClick={() => setSelectedRun(run)}
-                  >
-                    #{run.id}
-                  </Button>
-                </TableCell>
-                <TableCell>{getStatusBadge(run.status, run.conclusion)}</TableCell>
-                <TableCell className="hidden md:table-cell">{run.branch}</TableCell>
-                <TableCell className="hidden md:table-cell">
-                  <div>{formatDate(run.created_at)}</div>
-                  <div className="text-xs text-muted-foreground">
-                    {formatTime(run.created_at)}
+          {workflowRuns.map((run) => (
+            <TableRow key={run.id}>
+              <TableCell>
+                <Button 
+                  variant="link" 
+                  className="p-0 h-auto" 
+                  onClick={() => setSelectedRun(run)}
+                >
+                  #{run.id}
+                </Button>
+              </TableCell>
+              <TableCell>{getStatusBadge(run.status, run.conclusion)}</TableCell>
+              <TableCell className="hidden md:table-cell">{run.branch}</TableCell>
+              <TableCell className="hidden md:table-cell">
+                <div>{formatDate(run.created_at)}</div>
+                <div className="text-xs text-muted-foreground">
+                  {formatTime(run.created_at)}
+                </div>
+              </TableCell>
+              <TableCell className="hidden md:table-cell">
+                {run.prs ? (
+                  <div className="flex flex-wrap gap-1">
+                    {run.prDetails && Array.isArray(run.prDetails) ? (
+                      run.prDetails.map((pr) => (
+                        <TooltipProvider key={pr.number}>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Badge 
+                                variant="outline"
+                                className="cursor-help hover:bg-accent"
+                              >
+                                #{pr.number}
+                              </Badge>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              {pr.title}
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      ))
+                    ) : (
+                      run.prs.split(', ').map((prNumber, index) => (
+                        <Badge key={index} variant="outline">
+                          #{prNumber}
+                        </Badge>
+                      ))
+                    )}
                   </div>
-                </TableCell>
-                <TableCell className="hidden md:table-cell">
-                  {run.prs ? (
-                    <div className="flex flex-wrap gap-1">
-                      {run.prs.split(', ').map((prNumber, index) => (
-                        <Tooltip key={index}>
-                          <TooltipTrigger asChild>
-                            <Badge 
-                              variant="outline"
-                              className="cursor-help hover:bg-accent"
-                            >
-                              #{prNumber}
-                            </Badge>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            {prTitleMap.get(prNumber) || "No title available"}
-                          </TooltipContent>
-                        </Tooltip>
-                      ))}
-                    </div>
-                  ) : "N/A"}
-                </TableCell>
-                <TableCell>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    onClick={() => setSelectedRun(run)}
-                  >
-                    View
-                  </Button>
-                </TableCell>
-              </TableRow>
-            );
-          })}
+                ) : "N/A"}
+              </TableCell>
+              <TableCell>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => setSelectedRun(run)}
+                >
+                  View
+                </Button>
+              </TableCell>
+            </TableRow>
+          ))}
         </TableBody>
       </Table>
       
