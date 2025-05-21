@@ -132,9 +132,6 @@ const BuildDetailsDialog = ({ run, open, onClose }: BuildDetailsDialogProps) => 
 
         <ScrollArea className="flex-1 overflow-auto">
           <div className="space-y-6 p-1">
-            {/* Pull Requests Section */}
-            {run.prs && <PRDetailsCard prs={run.prs} prDetails={run.prDetails} />}
-
             {/* Jobs Section */}
             <JobsSection 
               jobs={jobs} 

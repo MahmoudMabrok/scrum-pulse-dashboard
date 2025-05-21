@@ -43,19 +43,26 @@ export function extractPRInfo(text: string): PRInfo[] {
   // The regex now captures the entire line text as the title and the PR number in the format #[number]
 
   // split by more than one space
-  const texts = text.split(/\s{2,}/);
+  const texts = text.split('\n');
 
   // Array to store the extracted PR information
   const prInfo: PRInfo[] = [];
 
   // loop on texts and print text until find "(#[number])" then print number
   texts.forEach((text) => {
-    console.log(`Processing text: ${text}`);
     const data = text.split(" (#[");
-    if (data.length == 2) {
+    if (data.length > 1) {
       const title = data[0].replace('- ', '').trim();
       const end = data[1].indexOf(']');
+      if (end === -1) {
+        console.error(`Invalid PR format in text: ${text}`);
+        return;
+      }
       const prNumber = data[1].slice(0, end);
+
+      console.log(`${end} Extracted PR number: ${prNumber}, title: ${title}`);
+      
+
       prInfo.push({
         number: prNumber,
         title: title

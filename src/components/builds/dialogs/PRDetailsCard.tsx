@@ -41,7 +41,7 @@ const PRDetailsCard = ({ prs, prDetails }: PRDetailsCardProps) => {
             // If we have PR details, use them to show tooltips
             prDetails.map((pr) => (
               <HoverCard key={pr.number}>
-                <HoverCardTrigger asChild>
+                <HoverCardTrigger>
                   <Badge 
                     variant="outline" 
                     className="cursor-help hover:bg-accent"
@@ -50,10 +50,7 @@ const PRDetailsCard = ({ prs, prDetails }: PRDetailsCardProps) => {
                   </Badge>
                 </HoverCardTrigger>
                 <HoverCardContent className="w-80">
-                  <div>
-                    <h4 className="font-semibold">PR #{pr.number}</h4>
-                    <p className="text-sm">{pr.title || "hello"}</p>
-                  </div>
+                {pr.title }
                 </HoverCardContent>
               </HoverCard>
             ))
