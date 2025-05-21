@@ -7,6 +7,7 @@ import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
+  TooltipProvider,
 } from "@/components/ui/tooltip";
 
 interface PRDetailsCardProps {
@@ -32,20 +33,22 @@ const PRDetailsCard = ({ prs, prDetails }: PRDetailsCardProps) => {
       </CardHeader>
       <CardContent>
         <div className="flex flex-wrap gap-2">
-          {prs.split(', ').map((prNumber, index) => (
-            <Tooltip key={index}>
-              <TooltipTrigger asChild>
-                <Badge 
-                  variant="outline" 
-                  className="cursor-help hover:bg-accent"
-                >
-                  #{prNumber}
-                </Badge>
-              </TooltipTrigger>
-              <TooltipContent>
-                {prTitleMap.get(prNumber) || "No title available"}
-              </TooltipContent>
-            </Tooltip>
+          {prDetails?.map(({title, number}) => (
+            <TooltipProvider key={title}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Badge 
+                    variant="outline" 
+                    className="cursor-help hover:bg-accent"
+                  >
+                    #{number}
+                  </Badge>
+                </TooltipTrigger>
+                <TooltipContent>
+                  {title}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           ))}
         </div>
       </CardContent>

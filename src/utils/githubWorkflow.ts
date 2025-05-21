@@ -1,4 +1,5 @@
 
+import { PRInfo } from './api';
 import { decrypt } from './encryptionUtil';
 import { fetchWorkflowArtifactData } from './githubWorkflowApp';
 
@@ -26,6 +27,7 @@ export interface WorkflowRun {
   actor: string;
   jobs_url: string;
   prs?: string;
+  prsDetails?: PRInfo[];
 }
 
 export interface JobRun {
@@ -163,6 +165,7 @@ export const fetchWorkflowRuns = async ( specificWorkflowId: string | null = nul
       const data = await fetchWorkflowArtifactData(run);
       if (data ) {
         run.prs = data.prs;
+        run.prsDetails = data.prDetails;
       }
     } catch (error) {
       console.error(`Error fetching PRs for run ${run.id}:`, error);
