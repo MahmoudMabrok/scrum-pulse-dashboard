@@ -14,12 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import BuildDetailsDialog from "./BuildDetailsDialog";
 import { getStatusBadge } from "./BuildsUtils";
 import { format } from "date-fns";
-import { 
-  Tooltip, 
-  TooltipContent, 
-  TooltipTrigger,
-  TooltipProvider 
-} from "@/components/ui/tooltip";
+import { HoverCard, HoverCardTrigger, HoverCardContent } from "@/components/ui/hover-card";
 
 interface BuildListProps {
   workflowRuns: WorkflowRun[];
@@ -74,21 +69,22 @@ const BuildList = ({ workflowRuns }: BuildListProps) => {
                   <div className="flex flex-wrap gap-1">
                     {run.prDetails && Array.isArray(run.prDetails) ? (
                       run.prDetails.map((pr) => (
-                        <TooltipProvider key={pr.number}>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Badge 
-                                variant="outline"
-                                className="cursor-help hover:bg-accent"
-                              >
-                                #{pr.number}
-                              </Badge>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              hello
-                            </TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
+                        <HoverCard key={pr.number}>
+                          <HoverCardTrigger asChild>
+                            <Badge 
+                              variant="outline"
+                              className="cursor-help hover:bg-accent"
+                            >
+                              #{pr.number}
+                            </Badge>
+                          </HoverCardTrigger>
+                          <HoverCardContent className="w-80">
+                            <div>
+                              <h4 className="font-semibold">PR #{pr.number}</h4>
+                              <p className="text-sm">{pr.title || "hello"}</p>
+                            </div>
+                          </HoverCardContent>
+                        </HoverCard>
                       ))
                     ) : (
                       run.prs.split(', ').map((prNumber, index) => (

@@ -4,11 +4,10 @@ import { PRInfo } from "@/utils/githubWorkflowApp/types";
 import { Card, CardHeader, CardContent, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-  TooltipProvider,
-} from "@/components/ui/tooltip";
+  HoverCard,
+  HoverCardTrigger,
+  HoverCardContent
+} from "@/components/ui/hover-card";
 
 interface PRDetailsCardProps {
   prs: string;
@@ -41,21 +40,22 @@ const PRDetailsCard = ({ prs, prDetails }: PRDetailsCardProps) => {
           {prDetails && Array.isArray(prDetails) ? (
             // If we have PR details, use them to show tooltips
             prDetails.map((pr) => (
-              <TooltipProvider key={pr.number}>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Badge 
-                      variant="outline" 
-                      className="cursor-help hover:bg-accent"
-                    >
-                      #{pr.number}
-                    </Badge>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    hello
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
+              <HoverCard key={pr.number}>
+                <HoverCardTrigger asChild>
+                  <Badge 
+                    variant="outline" 
+                    className="cursor-help hover:bg-accent"
+                  >
+                    #{pr.number}
+                  </Badge>
+                </HoverCardTrigger>
+                <HoverCardContent className="w-80">
+                  <div>
+                    <h4 className="font-semibold">PR #{pr.number}</h4>
+                    <p className="text-sm">{pr.title || "hello"}</p>
+                  </div>
+                </HoverCardContent>
+              </HoverCard>
             ))
           ) : (
             // Fallback to just showing PR numbers without tooltips if we don't have details
