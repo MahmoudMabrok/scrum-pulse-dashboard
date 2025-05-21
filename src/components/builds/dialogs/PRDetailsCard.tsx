@@ -52,7 +52,7 @@ const PRDetailsCard = ({ prs, prDetails }: PRDetailsCardProps) => {
                     </Badge>
                   </TooltipTrigger>
                   <TooltipContent>
-                    {pr.title}
+                    hello
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>

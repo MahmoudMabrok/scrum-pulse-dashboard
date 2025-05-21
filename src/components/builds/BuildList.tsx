@@ -85,7 +85,7 @@ const BuildList = ({ workflowRuns }: BuildListProps) => {
                               </Badge>
                             </TooltipTrigger>
                             <TooltipContent>
-                              {pr.title}
+                              hello
                             </TooltipContent>
                           </Tooltip>
                         </TooltipProvider>
