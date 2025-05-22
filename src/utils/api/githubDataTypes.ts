@@ -34,15 +34,21 @@ export interface CommentDetail {
   body: string;
   createdAt: string;
   url: string;
+  author: string;  // Added to track who wrote the comment
+  prAuthor: string; // Added to track who owns the PR
 }
 
 export interface TeamMember {
   login: string;
   prs: PullRequest[];
   commentsGiven: number;
+  commentsReceived: number; // Added field for tracking received comments
   approvalsGiven: number;
   reviewDetails?: ReviewDetail[];
   commentDetails?: CommentDetail[];
+  commentsFromOthers?: CommentDetail[]; // Added to store comments received from others
+  lastApprovalDate?: string; // Added to track last approval date
+  averageReviewTime?: number; // Added to track average review time (in hours)
 }
 
 export interface LeaderboardItem {
@@ -50,6 +56,9 @@ export interface LeaderboardItem {
   totalPRs: number;
   totalCommentsGiven: number;
   totalApprovalsGiven: number;
+  commentsReceived: number;
+  averageReviewTime?: number;
+  lastApprovalDate?: string;
 }
 
 export interface PRInfo {

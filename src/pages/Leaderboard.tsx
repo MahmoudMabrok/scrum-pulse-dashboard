@@ -14,7 +14,7 @@ import { fetchTeamData, TeamMember, DateFilter, generateLeaderboardData } from "
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useState } from "react";
-import { Loader, AlertTriangle, Info, Calendar, MessageSquare, Check } from "lucide-react";
+import { Loader, AlertTriangle, Info, Calendar, MessageSquare, Check, Clock } from "lucide-react";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import MemberDetailsDialog from "@/components/leaderboard/MemberDetailsDialog";
 import { 
@@ -24,11 +24,11 @@ import {
   SelectTrigger, 
   SelectValue 
 } from "@/components/ui/select";
-import { format } from "date-fns";
+import { format, formatDistanceToNow } from "date-fns";
 
 const Leaderboard = () => {
   const { toast } = useToast();
-  const [sortField, setSortField] = useState<'totalPRs' | 'totalCommentsGiven' | 'totalApprovalsGiven'>('totalApprovalsGiven');
+  const [sortField, setSortField] = useState<'totalPRs' | 'totalCommentsGiven' | 'totalApprovalsGiven' | 'commentsReceived' | 'averageReviewTime'>('totalApprovalsGiven');
   const [selectedMember, setSelectedMember] = useState<TeamMember | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dateFilter, setDateFilter] = useState<DateFilter>("all");
@@ -53,8 +53,14 @@ const Leaderboard = () => {
     setDialogOpen(true);
   };
 
-  const formatDate = (dateString: string) => {
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return 'N/A';
     return format(new Date(dateString), "dd-MM-yyyy");
+  };
+
+  const getTimeAgo = (dateString?: string) => {
+    if (!dateString) return '';
+    return formatDistanceToNow(new Date(dateString), { addSuffix: true });
   };
 
   if (isLoading) {
@@ -105,7 +111,15 @@ const Leaderboard = () => {
   const leaderboardData = generateLeaderboardData(teamData);
   
   // Sort the leaderboard data based on the selected sort field
-  const sortedLeaderboardData = [...leaderboardData].sort((a, b) => b[sortField] - a[sortField]);
+  const sortedLeaderboardData = [...leaderboardData].sort((a, b) => {
+    if (sortField === 'averageReviewTime') {
+      // For review time, shorter is better
+      const aValue = a[sortField] || Number.MAX_SAFE_INTEGER;
+      const bValue = b[sortField] || Number.MAX_SAFE_INTEGER;
+      return aValue - bValue;
+    }
+    return (b[sortField] || 0) - (a[sortField] || 0);
+  });
 
   return (
     <div className="container mx-auto p-6">
@@ -133,7 +147,7 @@ const Leaderboard = () => {
         <CardContent>
           <div className="mb-4">
             <p className="text-sm text-muted-foreground mb-2">Sort by:</p>
-            <div className="flex gap-4">
+            <div className="flex flex-wrap gap-4">
               <button
                 className={`px-3 py-1 rounded text-sm ${sortField === 'totalPRs' ? 'bg-primary text-primary-foreground' : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'}`}
                 onClick={() => setSortField('totalPRs')}
@@ -147,10 +161,22 @@ const Leaderboard = () => {
                 Comments Given
               </button>
               <button
+                className={`px-3 py-1 rounded text-sm ${sortField === 'commentsReceived' ? 'bg-primary text-primary-foreground' : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'}`}
+                onClick={() => setSortField('commentsReceived')}
+              >
+                Comments Received
+              </button>
+              <button
                 className={`px-3 py-1 rounded text-sm ${sortField === 'totalApprovalsGiven' ? 'bg-primary text-primary-foreground' : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'}`}
                 onClick={() => setSortField('totalApprovalsGiven')}
               >
                 Approvals Given
+              </button>
+              <button
+                className={`px-3 py-1 rounded text-sm ${sortField === 'averageReviewTime' ? 'bg-primary text-primary-foreground' : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'}`}
+                onClick={() => setSortField('averageReviewTime')}
+              >
+                Review Time
               </button>
             </div>
           </div>
@@ -158,11 +184,14 @@ const Leaderboard = () => {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[100px]">Rank</TableHead>
+                  <TableHead className="w-[60px]">Rank</TableHead>
                   <TableHead>Member</TableHead>
                   <TableHead>PRs Created</TableHead>
                   <TableHead>Comments Given</TableHead>
-                  <TableHead>Approvals Given</TableHead>
+                  <TableHead>Comments Received</TableHead>
+                  <TableHead>Approvals</TableHead>
+                  <TableHead>Avg. Review (hrs)</TableHead>
+                  <TableHead>Last Approval</TableHead>
                   <TableHead className="text-right">Details</TableHead>
                 </TableRow>
               </TableHeader>
@@ -187,9 +216,29 @@ const Leaderboard = () => {
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-1">
+                          <MessageSquare size={16} className="text-muted-foreground" />
+                          {member.commentsReceived}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-1">
                           <Check size={16} className="text-muted-foreground" />
                           {member.totalApprovalsGiven}
                         </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-1">
+                          <Clock size={16} className="text-muted-foreground" />
+                          {member.averageReviewTime !== undefined ? `${member.averageReviewTime}h` : 'N/A'}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        {member.lastApprovalDate ? (
+                          <div className="text-xs">
+                            <div>{formatDate(member.lastApprovalDate)}</div>
+                            <div className="text-muted-foreground">{getTimeAgo(member.lastApprovalDate)}</div>
+                          </div>
+                        ) : 'N/A'}
                       </TableCell>
                       <TableCell className="text-right">
                         <Button 

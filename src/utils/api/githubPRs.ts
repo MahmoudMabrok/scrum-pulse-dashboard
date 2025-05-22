@@ -128,5 +128,7 @@ export const extractCommentDetails = (
     body: comment.body || "",
     createdAt: comment.created_at || comment.submitted_at,
     url: pr.url,
+    author: commenter,
+    prAuthor: pr.author
   };
 };

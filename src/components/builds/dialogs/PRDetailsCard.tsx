@@ -50,7 +50,8 @@ const PRDetailsCard = ({ prs, prDetails }: PRDetailsCardProps) => {
                   </Badge>
                 </HoverCardTrigger>
                 <HoverCardContent className="w-80">
-                {pr.title }
+                  <div className="font-medium">PR #{pr.number}</div>
+                  <div className="text-sm text-muted-foreground mt-1">{pr.title}</div>
                 </HoverCardContent>
               </HoverCard>
             ))

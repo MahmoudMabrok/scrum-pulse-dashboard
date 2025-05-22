@@ -3,6 +3,7 @@ import { fetchWithAuth, getStoredSettings } from './githubAuth';
 import { TeamMember, PullRequest } from './githubDataTypes';
 import { fetchPullRequestsForUser, extractReviewDetails, extractCommentDetails } from './githubPRs';
 import { DateFilter } from './githubDateFilters';
+import { differenceInHours } from 'date-fns';
 
 /**
  * Fetches data for all team members
@@ -26,9 +27,11 @@ export const fetchTeamData = async (dateFilter: DateFilter = 'all'): Promise<Tea
         login: username,
         prs,
         commentsGiven: 0, // Will calculate after gathering all PRs
+        commentsReceived: 0, // Will calculate after gathering all PRs
         approvalsGiven: 0, // Will calculate after gathering all PRs
         reviewDetails: [],
         commentDetails: [],
+        commentsFromOthers: [],
       });
     } catch (error) {
       console.error(`Error fetching data for ${username}:`, error);
@@ -37,9 +40,11 @@ export const fetchTeamData = async (dateFilter: DateFilter = 'all'): Promise<Tea
         login: username,
         prs: [],
         commentsGiven: 0,
+        commentsReceived: 0,
         approvalsGiven: 0,
         reviewDetails: [],
         commentDetails: [],
+        commentsFromOthers: [],
       });
     }
   }
@@ -61,7 +66,12 @@ export const fetchTeamData = async (dateFilter: DateFilter = 'all'): Promise<Tea
         const memberIndex = teamData.findIndex(member => member.login === reviewer);
         
         if (memberIndex !== -1) {
-          // Count approvals
+          // Skip if the reviewer is the PR author (don't count comments on own PRs)
+          if (reviewer === pr.author) {
+            continue;
+          }
+          
+          // Count approvals and track last approval date
           if (review.state === 'APPROVED' || review.state === 'DISMISSED') {
             teamData[memberIndex].approvalsGiven += 1;
             
@@ -70,12 +80,20 @@ export const fetchTeamData = async (dateFilter: DateFilter = 'all'): Promise<Tea
               teamData[memberIndex].reviewDetails = [];
             }
             
-            teamData[memberIndex].reviewDetails.push(
-              extractReviewDetails(pr, review, reviewer)
-            );
+            const reviewDetails = extractReviewDetails(pr, review, reviewer);
+            teamData[memberIndex].reviewDetails.push(reviewDetails);
+            
+            // Track last approval date
+            if (review.state === 'APPROVED') {
+              const approvalDate = new Date(review.submitted_at);
+              if (!teamData[memberIndex].lastApprovalDate || 
+                  new Date(teamData[memberIndex].lastApprovalDate) < approvalDate) {
+                teamData[memberIndex].lastApprovalDate = review.submitted_at;
+              }
+            }
           }
           
-          // Count comments in reviews
+          // Count comments in reviews (only if not commenting on own PR)
           if (review.body && review.body.trim().length > 0 && review.state === 'COMMENTED') {
             teamData[memberIndex].commentsGiven += 1;
             
@@ -84,9 +102,20 @@ export const fetchTeamData = async (dateFilter: DateFilter = 'all'): Promise<Tea
               teamData[memberIndex].commentDetails = [];
             }
             
-            teamData[memberIndex].commentDetails.push(
-              extractCommentDetails(pr, review, reviewer)
-            );
+            const commentDetail = extractCommentDetails(pr, review, reviewer);
+            commentDetail.author = reviewer;
+            commentDetail.prAuthor = pr.author;
+            teamData[memberIndex].commentDetails.push(commentDetail);
+            
+            // Add this comment to the PR author's received comments
+            const prAuthorIndex = teamData.findIndex(member => member.login === pr.author);
+            if (prAuthorIndex !== -1) {
+              if (!teamData[prAuthorIndex].commentsFromOthers) {
+                teamData[prAuthorIndex].commentsFromOthers = [];
+              }
+              teamData[prAuthorIndex].commentsReceived += 1;
+              teamData[prAuthorIndex].commentsFromOthers.push(commentDetail);
+            }
           }
         }
       }
@@ -97,6 +126,11 @@ export const fetchTeamData = async (dateFilter: DateFilter = 'all'): Promise<Tea
         const memberIndex = teamData.findIndex(member => member.login === commenter);
         
         if (memberIndex !== -1) {
+          // Skip if commenter is the PR author (don't count comments on own PRs)
+          if (commenter === pr.author) {
+            continue;
+          }
+          
           teamData[memberIndex].commentsGiven += 1;
           
           // Add detailed comment info
@@ -104,13 +138,55 @@ export const fetchTeamData = async (dateFilter: DateFilter = 'all'): Promise<Tea
             teamData[memberIndex].commentDetails = [];
           }
           
-          teamData[memberIndex].commentDetails.push(
-            extractCommentDetails(pr, comment, commenter)
-          );
+          const commentDetail = extractCommentDetails(pr, comment, commenter);
+          commentDetail.author = commenter;
+          commentDetail.prAuthor = pr.author;
+          teamData[memberIndex].commentDetails.push(commentDetail);
+          
+          // Add this comment to the PR author's received comments
+          const prAuthorIndex = teamData.findIndex(member => member.login === pr.author);
+          if (prAuthorIndex !== -1) {
+            if (!teamData[prAuthorIndex].commentsFromOthers) {
+              teamData[prAuthorIndex].commentsFromOthers = [];
+            }
+            teamData[prAuthorIndex].commentsReceived += 1;
+            teamData[prAuthorIndex].commentsFromOthers.push(commentDetail);
+          }
         }
       }
     } catch (error) {
       console.error(`Error fetching reviews/comments for PR #${pr.number}:`, error);
+    }
+  }
+  
+  // Calculate average review time for each team member
+  for (const member of teamData) {
+    if (member.reviewDetails && member.reviewDetails.length > 0) {
+      let totalReviewTimeHours = 0;
+      let reviewCount = 0;
+      
+      for (const review of member.reviewDetails) {
+        // Find the corresponding PR to get creation date
+        const pr = allPRs.find(p => 
+          p.number === review.prNumber && 
+          p.repository === review.repository
+        );
+        
+        if (pr) {
+          const prCreationDate = new Date(pr.created_at);
+          const reviewSubmissionDate = new Date(review.submittedAt);
+          const hoursTaken = differenceInHours(reviewSubmissionDate, prCreationDate);
+          
+          if (hoursTaken > 0) {
+            totalReviewTimeHours += hoursTaken;
+            reviewCount++;
+          }
+        }
+      }
+      
+      if (reviewCount > 0) {
+        member.averageReviewTime = Math.round(totalReviewTimeHours / reviewCount);
+      }
     }
   }
   
@@ -126,5 +202,8 @@ export const generateLeaderboardData = (teamData: TeamMember[]) => {
     totalPRs: member.prs.length,
     totalCommentsGiven: member.commentsGiven,
     totalApprovalsGiven: member.approvalsGiven,
+    commentsReceived: member.commentsReceived,
+    averageReviewTime: member.averageReviewTime,
+    lastApprovalDate: member.lastApprovalDate,
   }));
 };
