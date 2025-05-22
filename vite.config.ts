@@ -5,7 +5,7 @@ import { componentTagger } from "lovable-tagger";
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
-  // base: '/scrum-pulse-dashboard/',
+  base: '/scrum-pulse-dashboard/',
   server: {
     host: "::",
     port: 8081,
